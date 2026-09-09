@@ -10,6 +10,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- 2026-09-09：中英文 README 快速上手改为“安装初始化→接入代码项目→AI 对话提需求”三步，说明 PyYAML 的用途、独立 Python 环境、命令执行位置与成功标志；会话及语言协议移至后续配置章节
+
 ### Fixed
 
 - 显式迭代 ID 在统一入口做白名单校验（`iter show`/`iter close`/`session set`/`iter new` 共用），阻断 `..`、绝对路径等路径穿越读改工作区外 `_index.yaml`（P0）

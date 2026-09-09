@@ -34,29 +34,74 @@ happlylong（缩写 **hy**）把「带 PRD 门槛的产研流程」做成一套 
 
 ## 快速上手
 
-要求：Python ≥ 3.10 + [pyyaml](requirements.txt)（唯一运行时依赖）；一个支持 `AGENTS.md` 与 `.agents/skills` 的 AI IDE（ZCode / Codex 原生识别；Claude Code 读根 `CLAUDE.md`，`init` 自动生成，技能可自建软链接入，见 FAQ）。
+准备好 **Git、Python 3.10 或更新版本，以及支持本项目技能的 AI 编辑器**。下面的终端命令在本机执行，`/hy-*` 指令在 AI 对话框中发送，两者不要混用。
 
-**指令语言（完整 i18n）**：首次 `init` 按系统 locale 自动探测（zh→中文，其余→英文）并固定，之后随时 `lang` 切换——CLI 文案、迭代/知识库模板、Skill、AGENTS.md 四层同语言。语言源在 `.hy/i18n/{zh,en}/`；`.agents/skills/` 与根 `AGENTS.md`/`CLAUDE.md` 是 `init`/`lang` 生成的**本机安装产物**（不入库），clone 后先跑 `init` 即生成。
+### 1. 下载并初始化（只做一次）
 
-从 GitHub 仓库的 **Code** 菜单克隆后，在本地执行：
+在终端执行；已经克隆过的，直接进入包含 `happlylong.py` 的目录：
 
 ```bash
-cd happlylong
-python3 -m pip install -r requirements.txt   # 唯一运行时依赖 pyyaml
-python3 happlylong.py init          # 骨架自检（幂等，重建本机注册表 workspace/_index.yaml）+ 安装语言包
-python3 happlylong.py init --lang en  # 或显式选择指令语言（en/zh）
-python3 happlylong.py lang            # 查看当前语言；python3 happlylong.py lang zh 切换
-python3 happlylong.py --session-id setup-check doctor  # 体检（--fix 自动修复可修项）
+git clone https://github.com/dusthappy/happylong.git
+cd happylong
 ```
 
-在 AI IDE 中打开本目录，即可使用全部 `/hy-*` 命令。**开一个需求**：
+创建独立 Python 环境，避免影响其他项目。按系统选择一组命令：
 
+**macOS / Linux**
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
 ```
-/hy-req --project example --title "示例需求"      # 建迭代 + 填充 PRD + 判定仓库面 + 契约走向
-/hy-dev                                          # 契约兜底→计划→实现→自检，多仓自动 BE→FE 串联
-/hy-test                                          # 冒烟，fail 则 /hy-fix
-/hy-knowledge iteration                          # 全 pass 后把本次变动沉淀进知识库
+
+**Windows PowerShell**
+
+```powershell
+py -3 -m venv .venv
+.\.venv\Scripts\Activate.ps1
 ```
+
+接着在同一终端执行：
+
+```bash
+python -m pip install -r requirements.txt
+python happlylong.py init --lang zh
+python happlylong.py --session-id setup-check doctor
+```
+
+看到“体检通过，无问题”即安装成功。`requirements.txt` 只安装 **PyYAML**，用于读写项目配置和迭代状态；`init` 会生成 AI 所需的规则和技能文件，无需手工创建。
+
+> 后续打开新终端时需重新激活 `.venv`；AI 调用工具也应使用此环境的 Python。若 PowerShell 阻止激活，可将后续命令中的 `python` 换成 `.\.venv\Scripts\python.exe`，无需更改执行策略。
+
+### 2. 接入一个代码项目
+
+仍在框架目录的终端执行。`example` 是本机项目名；将 `/abs/path/your-project` 换成你**实际存在的代码目录绝对路径**（Windows 如 `D:/code/your-project`）：
+
+```bash
+python happlylong.py project new example --title "我的项目"
+python happlylong.py link add example example "/abs/path/your-project" --role fullstack
+```
+
+这里只建立链接，不搬动或复制代码；后续 AI 开发会修改原代码目录。还没有代码目录？先创建一个空目录再接入。Windows 建立目录链接可能需要开启开发者模式或管理员权限。
+
+### 3. 在 AI 对话中开始需求
+
+用 AI 编辑器打开 **框架目录 `happylong`**，让它加载规则与技能。Claude Code 的技能接入见 FAQ；非自动提供会话身份的 Agent，先按下一节设置 `HY_SESSION_ID`。
+
+在对话框发送（不是终端）：
+
+```text
+/hy-req --project example --title "添加一个新功能"
+我希望实现：在这里描述具体功能、使用场景和预期效果。
+```
+
+按 AI 的提问确认需求，PRD 完成后发送 `/hy-dev` 开发；开发完成后发送 `/hy-test` 验证。**逐步执行，不要一次把三条指令全部发出。**
+
+已有代码的项目，可在提需求前发送 `/hy-knowledge bootstrap --project example`，让 AI 先梳理代码；验收通过后可用 `/hy-knowledge iteration` 更新知识库。
+
+## 会话与语言（按需配置）
+
+快速上手已显式安装中文。改用英文执行 `python happlylong.py lang en`；切回中文执行 `python happlylong.py lang zh`。不指定语言的首次 `init` 会按系统语言自动选择。切换会同时更新 CLI 文案、模板和 AI 规则；生成的 `.agents/skills/`、`AGENTS.md`、`CLAUDE.md` 只留在本机。
 
 > 显式 `/hy-req --title` 是“新 PRD”信号：无论当前是否已绑定，都直接创建并绑定新迭代。未带 `--title` 时先按当前会话路由；若未绑定，则询问绑定已有还是创建新迭代。
 
@@ -74,12 +119,6 @@ PowerShell 等价写法为 `$env:HY_SESSION_ID = "claude:project-a:conversation-
 上下文压缩不会改变落盘绑定；只要该 ID 在压缩、进程续跑或 Agent 交接后保持不变，就会稳定解析到同一迭代。跨 Agent 交接同一逻辑会话时，双方显式使用同一个 `HY_SESSION_ID`，且同一时刻只保留一个写入者；真正并行的会话必须使用不同 ID。若没有可信 ID，绑定相关命令会 **fail closed** 并拒绝执行，不再回退共享的 `current.yaml`，从而避免静默串线。
 
 **未绑定会话入口门禁**：新会话第一次收到会推进需求、开发、修复、复检、冒烟或 iteration 沉淀的 `/hy-*` 或自然语言请求时，先检查绑定。`session show` 的整个 stdout 是单份 YAML 文档；未绑定时以 `active: false` + `entry_gate` 返回机器可判定的门禁契约，并声明 workspace 根与必填绑定字段。代理据此列出有效迭代并循环 Ask-First，让你选择“绑定已有迭代”或“创建新迭代”。输入无效时不会落产物或改代码，而是重新询问；绑定/创建成功后会恢复最初请求。唯一例外是显式 `/hy-req --title`：它明确表示新 PRD，只补齐项目后直接创建。纯问答、框架导航/规范/职责评审、项目或软链接入、诊断、框架源码维护与开源/发版准备，以及 `/hy-knowledge bootstrap` 不受业务迭代门禁影响。
-
-**新接入已有代码库的项目**，先初始化知识库（从代码直接注入，零迭代冷启动）：
-
-```
-/hy-knowledge bootstrap --project example
-```
 
 ## Skill 一览（全部 hy- 前缀）
 
