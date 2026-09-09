@@ -1,0 +1,22 @@
+schema: 1
+id: 260828-fe-task-labels
+title: 任务标签
+type: feat
+project: example
+status: done          # open | done | abandoned
+created: 2026-08-28T10:12:00+08:00
+updated: 2026-08-28T18:30:00+08:00
+summary: 任务支持打标签、按标签筛选与标签管理，前后端联动形成完整闭环。
+
+# 本次需求涉及的仓库（由 /hy-req 判定后回写；backend 在前）
+repos_in_scope: [example_be, example_fe]
+
+# 三阶段状态机（SSOT，各 Skill 读写）
+stages:
+  prd: done
+  dev: done
+  smoke: pass
+
+# 契约闭合状态（/hy-req 契约三分支闭合；hy-dev 阶段0 兜底）
+contract: done
+contract_note: 新增表字段 + 5 个接口（标签 CRUD 与任务打标），BE↔FE 同迭代闭环，契约随 /hy-req 闭合。

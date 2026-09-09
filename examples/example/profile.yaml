@@ -1,0 +1,34 @@
+schema: 1
+project: example
+title: 示例项目
+description: 纯虚构示例：前端 + 后端 + 共享后端三种挂法演示（教学用，非真实项目）
+created: 2026-08-28T10:00:00+08:00
+updated: 2026-08-28T18:30:00+08:00
+
+# 技术栈（人工维护；doctor 会按仓库清单给出探测差异提醒）
+stack:
+  langs: [typescript, go]
+  frameworks: [vue3, uni-app, gin, ent]
+
+# 代码仓库登记（真实使用时由 happlylong.py link add 维护；本文件为教学样例）
+# 字段: role(frontend|backend|fullstack|lib) / target(绝对路径) / langs /
+#       shared(跨项目共享仓) / backend_apps(共享后端子项目) / pending(目标未就绪)
+repos:
+  example_fe:
+    role: frontend
+    target: /abs/path/example_fe
+    langs: [typescript, vue]
+  example_be:
+    role: backend
+    target: /abs/path/example_be
+    langs: [go]
+  shared_be:
+    role: backend
+    target: /abs/path/shared_be
+    shared: true
+    langs: [go]
+    backend_apps:
+      example:
+        title: shared_be 的 example 子模块
+        paths: [api/example, internal/biz/example, internal/service/example, internal/data/example, sql/example]
+    note: 共享仓演示——可被多个 workspace 项目同时挂载，迭代产物按项目分目录互不混淆

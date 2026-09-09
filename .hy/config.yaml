@@ -1,0 +1,60 @@
+# happlylong 框架配置（工具与 Skill 共同读取的约定值）
+schema: 2
+framework: happlylong
+version: 0.1.1
+created: '2026-09-01'
+
+# 指令语言 i18n（完整）：CLI 文案 + 模板 + Skill + AGENTS.md 四层同语言；
+# 首次 init 按系统 locale 探测一次并固定，lang 命令切换；
+# 本机选择记录在 .hy/session/prefs.yaml（gitignored）
+# 语言源：.hy/i18n/{zh,en}/（skills/ + AGENTS.md + templates/），安装目标 .agents/skills/ 与根 AGENTS.md/CLAUDE.md
+
+paths:
+  skills: .agents/skills
+  templates: .hy/i18n/{lang}/templates
+  # 每个代理会话一份绑定；hash = 固定命名空间 + 稳定会话 ID 的 SHA-256（原始 ID 不落盘）。
+  session_bindings: .hy/session/bindings/{session_hash}.yaml
+  # 旧文件仅保留在本机供人工迁移；运行时绝不自动读取，缺少稳定 ID 时 fail closed。
+  session_legacy: .hy/session/current.yaml
+  workspace: workspace
+  shared_rules: shared
+
+session:
+  binding_schema: 3
+  identity_priority: ['--session-id', HY_SESSION_ID, CODEX_THREAD_ID]
+  portable_identity: HY_SESSION_ID
+  hash_namespace: happlylong.session.v1
+  # 每条 active/previous 绑定都显式归属 workspace/{project}，工具按规范路径读写并校验。
+  workspace_root: workspace
+  required_active_fields: [project, iteration_id, iteration_path]
+  fail_closed: true
+  atomic_write: true
+  single_writer_per_identity: true
+  # 执行型请求未绑定时由 Agent 询问绑定已有/创建新迭代；显式 hy-req --title 唯一直接新建。
+  unbound_policy: ask_first_bind_or_create
+  explicit_new_iteration_signal: 'hy-req --title'
+
+iteration:
+  # 迭代 ID: {YYMMDD}-{type}-{slug}，type ∈ feat|fix|refactor|doc|chore
+  types: [feat, fix, refactor, doc, chore]
+  stages: [prd, dev, smoke]   # contract 为独立字段（pending|done|skipped），/hy-req 内闭合
+  artifacts:
+    prd: prd.md
+    contract: contract.md
+    plan: plan.md
+    smoke: smoke.md
+    impl_dir: implementation/
+    attach_dir: attach/
+
+repo_roles: [frontend, backend, fullstack, lib]
+# 多仓开发顺序：backend 角色仓先行，其余按 profile 声明序
+dev_repo_order: backend_first
+
+knowledge:
+  # 知识库位于 workspace/{project}/knowledge/{repo}/，由 /hy-knowledge 维护
+  files: [overview.md, api.md, data.md, changelog.md]
+  sources: [bootstrap, iteration]
+
+quality:
+  min_grade: C   # A/B/C 可交付，D 拒绝
+  placeholder_patterns: ['TODO', '待补充', 'TBD', 'FIXME', 'XXX']

@@ -1,0 +1,3 @@
+# 文本默认统一为 LF；Windows 批处理单独保留 CRLF。
+* text=auto eol=lf
+*.bat text eol=crlf

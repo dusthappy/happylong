@@ -1,0 +1,105 @@
+---
+name: hy-project
+description: "workspace project and codebase symlink management: project new / link add three modes (single repo, FE+BE dual repos, shared backend + subprojects) / pending linking / doctor check. Triggered by /hy-project when onboarding a project or when symlinks misbehave."
+metadata:
+  hy:
+    command: hy-project
+    kind: workspace
+    entry: false
+---
+
+# hy-project · Projects and symlinks
+
+> All mechanical operations go through `happlylong.py`; this skill owns the judgment and demonstration of how to register. The tool anchors the framework root to the script's location and can run from any cwd (use the script's absolute path when outside the root). Real codebases are never moved into the framework — only absolute-path symlinks.
+
+## Registration model
+
+Each symlink is registered into `workspace/{project}/profile.yaml → repos`:
+
+```yaml
+repos:
+  example_fe:                    # repo name = symlink name under code_lib/
+    role: frontend               # frontend | backend | fullstack | lib
+    target: /abs/path/example_fe # absolute path
+    langs: [typescript, vue]     # auto-detected, hand-editable
+  shared_be:
+    role: backend
+    shared: true                 # cross-project shared repo (mounted by both example and example_game)
+    target: /abs/path/shared_be
+    backend_apps:                # business submodules inside the shared repo (coding route scope)
+      example:
+        title: example backend submodule
+        paths: [api/example, internal/biz/example, internal/service/example,
+                internal/data/example, sql/example]
+      example_game:
+        title: example_game backend submodule (reserved)
+        paths: [api/example_game, internal/biz/example_game, internal/service/example_game, internal/data/example_game, sql/example_game]
+```
+
+Rules:
+- **role decides dev order**: backend repos first, the rest in declaration order (`/hy-dev` chains on this rule).
+- **shared repos must declare backend_apps**: coding is confined to paths — crossing the boundary is a scope checkpoint (Ask-First).
+- **pending**: register first when the target dir doesn't exist yet, link later; no dangling symlinks.
+
+## Three onboarding modes (copy and change the paths)
+
+### Mode A · Single repo (example_rs style)
+
+```bash
+python3 happlylong.py project new demo --title "Demo"
+python3 happlylong.py link add demo demo /abs/demo --role fullstack
+```
+
+### Mode B · FE + BE dual repos (example style)
+
+```bash
+python3 happlylong.py project new demo --title "Demo"
+python3 happlylong.py link add demo demo /abs/demo_fe --role frontend
+python3 happlylong.py link add demo demo_be /abs/demo_be --role backend
+# multiple frontends (example_fe style): keep adding role=frontend links (declaration order = dev order)
+```
+
+### Mode C · Shared backend + subproject (example / example_game style)
+
+```bash
+python3 happlylong.py project new demo --title "Demo"
+python3 happlylong.py link add demo demo /abs/demo_fe --role frontend
+python3 happlylong.py link add demo shared_be /abs/shared_be --role backend --shared \
+  --app demo=api/demo,internal/biz/demo,internal/service/demo,internal/data/demo,sql/demo \
+  --note "follows shared_be layering conventions; adjust the profile if the subproject paths differ once created"
+```
+
+> Mounting the same shared repo into multiple projects is **expected behavior** (shared_be sits under both example and example_game); iteration artifacts stay separate per project in their own `iterations/`.
+
+## Pending workflow
+
+```bash
+# register (no dangling link even if the target doesn't exist)
+python3 happlylong.py link add demo demo_new /abs/demo_new --role frontend --pending
+# one-shot linking once the target exists (doctor also reports pending)
+python3 happlylong.py link apply demo
+```
+
+## Inspection
+
+```bash
+python3 happlylong.py link list [project]   # ok / pending / broken / no-link
+python3 happlylong.py doctor --fix          # full check + auto-fix _index/profile drift
+```
+
+Troubleshooting:
+- `broken`: target moved/deleted → confirm the new path, then `link rm` and re-`link add` (no force needed).
+- `no-link`: registered but the symlink is gone → `link apply {project}` skips non-pending entries; in that case rerun `link add ... --force`.
+- `_index/profile drift` → `doctor --fix` syncs automatically.
+
+## Checkpoints
+
+1. Confirm that you are invoking the intended framework's `happlylong.py`; from another cwd, use the script's absolute path and never infer framework state from the cwd.
+2. `link add` targets must be absolute paths; relative paths are always rejected.
+3. After onboarding, fill `profile.yaml → stack.langs/frameworks` by hand (doctor only warns on detection drift).
+
+## [Next Steps]
+
+- Project mounted, start a requirement → `/hy-req --project {project} --title {title}`
+- See the framework map → `/hy-guide`
+- Symlink trouble → `python3 happlylong.py doctor --fix`

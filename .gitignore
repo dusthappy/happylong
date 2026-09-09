@@ -1,0 +1,38 @@
+# ============================================================
+# happlylong 三层隔离（规范见 .hy/opensource.md）
+#   发布层（tracked）：工具/语言源(.hy/i18n)/模板源/规范/示例/社区文件
+#   本机层（ignored）：安装产物、会话、偏好、真实项目
+#   外部层：code_lib 软链指向的真实代码库，永不入库
+# ============================================================
+
+.DS_Store
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+# ── 本机层：安装产物（由 init/lang 从 .hy/i18n/{lang}/ 生成，语言因人而异，不入库） ──
+/AGENTS.md
+/CLAUDE.md
+/.agents/
+/.claude/
+
+# ── 本机层：运行时状态与个人内容，永不入库 ──
+
+# 会话绑定与本机语言偏好
+.hy/session/
+
+# 工具/文档改写快照（.bak 与恢复留痕）
+.hy/snapshots/
+
+# 真实项目名 → 示例名映射（本机私有，同时是 release-check 的模式源）
+.hy/private-names.yaml
+
+# workspace 整目录为本机业务区（真实项目/注册表/迭代产物），一律不入库；
+# 框架层通用规范在根目录 shared/，虚构教学示例在根目录 examples/（均默认入库）
+workspace/
