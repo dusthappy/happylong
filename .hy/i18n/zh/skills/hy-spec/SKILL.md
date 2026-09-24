@@ -41,7 +41,7 @@ metadata:
 - 输出不得残留占位符：`TODO` / `待补充` / `TBD` / `FIXME` / `XXX`。
 - 文档类产物变更必须更新修订历史表。
 - 按语言加载规范：改哪类代码就加载 `shared/standards/` 对应文件 + `coding-standards.md`；涉安全/测试再加载 `security-rules.md` / `testing-standards.md`。
-- 仓库角色与开发顺序：backend 先、其余按 `profile.yaml → repos` 声明序；共享仓（shared_be）改动必须落在 `backend_apps.{name}.paths` 内，越界即 scope 卡点。
+- 仓库角色与开发顺序：backend/service 先、其余按 `profile.yaml → repos` 声明序；登记必须显式 `--role` 并补 `--desc`/`--lang`；共享仓（shared_be）改动必须落在 `backend_apps.{name}.paths` 内，越界即 scope 卡点。
 
 ## 2. Skill 执行生命周期（五步）
 

@@ -5,7 +5,7 @@ alwaysApply: true
 
 # happlylong 代理行为规范
 
-> **版本**: 0.1.1 | **更新**: 2026-09-04
+> **版本**: 0.1.2 | **更新**: 2026-09-24
 > happlylong（缩写 **hy**）是服务于 `workspace/` 下多个个人项目的产研工作台。
 > 设计基调：**单轨轻链路、零平台镜像、工具即真相**。
 
@@ -29,7 +29,7 @@ happlylong/                     ← 框架根（本文件所在目录）
 └── workspace/                  ← 本机业务区（含个人内容，整目录不入库）
     ├── _index.yaml             ← 项目注册表
     └── {project}/              ← 业务项目位
-        ├── profile.yaml        ← 仓库登记（role/shared/backend_apps/pending）
+        ├── profile.yaml        ← 仓库登记（role/shared/backend_apps/desc/langs/pending）
         ├── code_lib/{repo} →   ← 真实代码库的软链（改动落码的地方）
         ├── knowledge/{repo}/   ← 知识库（overview/api/data/changelog，/hy-knowledge 维护）
         └── iterations/{id}/    ← 迭代产物（prd/contract/plan/smoke/implementation/attach）
@@ -37,7 +37,7 @@ happlylong/                     ← 框架根（本文件所在目录）
 
 **迭代 ID**：`{YYMMDD}-{type}-{slug}`，type ∈ feat|fix|refactor|doc|chore。
 **三阶段状态机**（SSOT 在迭代 `_index.yaml → stages`）：`prd → dev → smoke`；契约闭合状态另记 `_index.yaml → contract` 字段（`/hy-req` 内闭合，dev 阶段 0 兜底）。
-**仓库开发顺序**：backend 角色仓先，其余按 profile 声明序；共享后端（如 shared_be）按 `backend_apps.{name}.paths` 路由到子项目目录。
+**仓库开发顺序**：backend/service 角色仓先，其余按 profile 声明序；共享后端/服务层仓（如 shared_be）按 `backend_apps.{name}.paths` 路由到子项目目录。
 
 ## 二、Skill 体系（全部 hy- 前缀）
 
@@ -111,4 +111,4 @@ P0 → 立即中止 + 说明 + 修正建议；P1 → 警告并修正；P2（建�
 
 ---
 
-*happlylong v0.1.1 · 单轨 lite · 零镜像 · 工具即真相*
+*happlylong v0.1.2 · 单轨 lite · 零镜像 · 工具即真相*

@@ -5,7 +5,7 @@ alwaysApply: true
 
 # happlylong Agent Behavior Spec
 
-> **Version**: 0.1.1 | **Updated**: 2026-09-04
+> **Version**: 0.1.2 | **Updated**: 2026-09-24
 > happlylong (**hy** for short) is a product-dev workbench serving multiple personal projects under `workspace/`.
 > Design tenets: **single lightweight track, zero platform mirroring, the CLI is the source of truth**.
 
@@ -29,7 +29,7 @@ happlylong/                     ← framework root (directory containing this fi
 └── workspace/                  ← local business area (personal content; the whole directory is never committed)
     ├── _index.yaml             ← project registry
     └── {project}/              ← business project slot
-        ├── profile.yaml        ← repo registry (role/shared/backend_apps/pending)
+        ├── profile.yaml        ← repo registry (role/shared/backend_apps/desc/langs/pending)
         ├── code_lib/{repo} →   ← symlinks to real codebases (where changes land)
         ├── knowledge/{repo}/   ← knowledge base (overview/api/data/changelog, maintained by /hy-knowledge)
         └── iterations/{id}/    ← iteration artifacts (prd/contract/plan/smoke/implementation/attach)
@@ -37,7 +37,7 @@ happlylong/                     ← framework root (directory containing this fi
 
 **Iteration ID**: `{YYMMDD}-{type}-{slug}`, type ∈ feat|fix|refactor|doc|chore.
 **Three-stage state machine** (SSOT at iteration `_index.yaml → stages`): `prd → dev → smoke`; contract closure is a separate `_index.yaml → contract` field (closed within `/hy-req`, dev stage-0 as fallback).
-**Repo dev order**: backend-role repos first, the rest in profile declaration order; a shared backend (e.g. shared_be) is routed to subproject directories via `backend_apps.{name}.paths`.
+**Repo dev order**: backend/service-role repos first, the rest in profile declaration order; a shared backend/service-layer repo (e.g. shared_be) is routed to subproject directories via `backend_apps.{name}.paths`.
 
 ## 2. Skill system (all hy- prefixed)
 
@@ -111,4 +111,4 @@ P0 → stop immediately + explanation + fix suggestion; P1 → warn and fix; P2 
 
 ---
 
-*happlylong v0.1.1 · single-track lite · zero mirroring · the CLI is the source of truth*
+*happlylong v0.1.2 · single-track lite · zero mirroring · the CLI is the source of truth*

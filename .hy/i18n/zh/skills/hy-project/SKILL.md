@@ -19,14 +19,15 @@ metadata:
 ```yaml
 repos:
   example_fe:                    # 仓库名 = code_lib/ 下软链名
-    role: frontend               # frontend | backend | fullstack | lib
+    role: frontend               # frontend | backend | service | fullstack | lib（登记时必须显式声明）
+    desc: 负责示例 Web 端页面与交互 # 一句话功能定位（建议给全；doctor 会对缺失提醒）
     target: /abs/path/example_fe # 绝对路径
-    langs: [typescript, vue]     # 自动探测，可人工修
+    langs: [typescript, vue]     # 代码类型：--lang 显式声明优先，未给则自动探测，可人工修
   shared_be:
     role: backend
     shared: true                 # 跨项目共享仓（example 与 example_game 都挂它）
     target: /abs/path/shared_be
-    backend_apps:                # 共享仓内业务子模块（路由落码范围）
+    backend_apps:                # 共享仓内业务子模块（路由落码范围；backend/service 仓可用）
       example:
         title: example 后端子模块
         paths: [api/example, internal/biz/example, internal/service/example,
@@ -37,9 +38,10 @@ repos:
 ```
 
 规则：
-- **role 决定开发顺序**：backend 仓先，其余按声明序（`/hy-dev` 依赖此规则串联）。
+- **登记即定责**：`--role` 必填，登记时明确该仓是前端、后端、服务层还是全栈/库；每仓建议补 `--desc`（一句话功能定位）与 `--lang`（代码类型），缺 desc 时 doctor 提醒。
+- **role 决定开发顺序**：backend/service 仓先，其余按声明序（`/hy-dev` 依赖此规则串联）。
 - **shared 仓必须配 backend_apps**：落码范围限定在 paths 内，越界即 scope 卡点（Ask-First）。
-- **pending**：目标目录还没建好时先登记后补链，不创建悬空软链。
+- **pending**：目标目录还没建好时先登记后补链，不创建悬空软链（可用 `--lang` 预先声明代码类型）。
 
 ## 三种接入模式（照抄改路径即可）
 
@@ -47,15 +49,15 @@ repos:
 
 ```bash
 python3 happlylong.py project new demo --title "演示"
-python3 happlylong.py link add demo demo /abs/demo --role fullstack
+python3 happlylong.py link add demo demo /abs/demo --role fullstack --desc "单仓全栈：页面与接口一体"
 ```
 
 ### 模式 B · FE + BE 双仓（example 型）
 
 ```bash
 python3 happlylong.py project new demo --title "演示"
-python3 happlylong.py link add demo demo /abs/demo_fe --role frontend
-python3 happlylong.py link add demo demo_be /abs/demo_be --role backend
+python3 happlylong.py link add demo demo /abs/demo_fe --role frontend --lang typescript --desc "演示 Web 前端（Vue）"
+python3 happlylong.py link add demo demo_be /abs/demo_be --role backend --lang go --desc "演示业务后端"
 # example_fe 型多前端：继续 link add 多条 role=frontend（声明序即开发序）
 ```
 
@@ -63,19 +65,22 @@ python3 happlylong.py link add demo demo_be /abs/demo_be --role backend
 
 ```bash
 python3 happlylong.py project new demo --title "演示"
-python3 happlylong.py link add demo demo /abs/demo_fe --role frontend
-python3 happlylong.py link add demo shared_be /abs/shared_be --role backend --shared \
+python3 happlylong.py link add demo demo /abs/demo_fe --role frontend --lang typescript --desc "演示 Web 前端（Vue）"
+python3 happlylong.py link add demo shared_be /abs/shared_be --role backend --lang go --shared \
   --app demo=api/demo,internal/biz/demo,internal/service/demo,internal/data/demo,sql/demo \
+  --desc "共享业务后端，按子项目路由落码" \
   --note "沿 shared_be 分层惯例；子项目路径建好后如不符实际，改 profile 即可"
 ```
+
+> 纯服务层仓（网关/BFF/中间件等）用 `--role service`，共享时同样配 `--app` 路由子项目。
 
 > 重复挂载同一共享仓到多个项目是**预期行为**（shared_be 同时在 example 与 example_game 下）；迭代产物按项目分开存放于各自 `iterations/`。
 
 ## pending 工作流
 
 ```bash
-# 登记（目标不存在也不建悬空链）
-python3 happlylong.py link add demo demo_new /abs/demo_new --role frontend --pending
+# 登记（目标不存在也不建悬空链；--lang 可预先声明代码类型）
+python3 happlylong.py link add demo demo_new /abs/demo_new --role frontend --lang typescript --desc "新增管理端" --pending
 # 目标就绪后一键补链（doctor 也会提示 pending）
 python3 happlylong.py link apply demo
 ```
@@ -83,7 +88,7 @@ python3 happlylong.py link apply demo
 ## 巡检
 
 ```bash
-python3 happlylong.py link list [project]   # ok / pending / broken / no-link
+python3 happlylong.py link list [project]   # 状态 + role/langs/desc 全景
 python3 happlylong.py doctor --fix          # 全量体检 + 自动修复 _index/profile 不一致
 ```
 
@@ -96,7 +101,8 @@ python3 happlylong.py doctor --fix          # 全量体检 + 自动修复 _index
 
 1. 确认调用的是目标框架的 `happlylong.py`；非框架根 cwd 下使用脚本绝对路径，禁止按 cwd 猜框架状态。
 2. `link add` 的 target 必须是绝对路径；相对路径一律拒绝。
-3. 新项目完成后把 `profile.yaml → stack.langs/frameworks` 人工补齐（doctor 只提醒探测差异）。
+3. `--role` 必须显式声明；每仓补齐 `--desc` 功能定位与 `--lang` 代码类型——`link list` 应能仅凭登记读出「哪个仓干什么、什么技术」。
+4. 新项目完成后把 `profile.yaml → stack.langs/frameworks` 人工补齐（doctor 只提醒探测差异）。
 
 ## [Next Steps]
 

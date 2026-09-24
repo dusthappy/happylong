@@ -65,7 +65,7 @@ Tool-side commands (`python3 happlylong.py [--session-id ID] …`): `--session-i
 |------|---------|
 | project | a business project slot under `workspace/` (e.g. the example / example_game samples) |
 | repo | a real codebase behind one symlink in `code_lib/` |
-| role | repo role: frontend / backend / fullstack / lib |
+| role | repo role: frontend / backend / service / fullstack / lib (explicit at registration) |
 | shared repo | a backend repo mounted by multiple projects (e.g. shared_be) |
 | backend_apps | business submodules inside a shared repo (e.g. shared_be's example: api/example, internal/{biz,service,data}/example, sql/example) |
 | pending repo | registered, target dir not ready, symlink to be linked later |

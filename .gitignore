@@ -27,6 +27,9 @@ venv/
 # 会话绑定与本机语言偏好
 .hy/session/
 
+# ZCode 本机会话产物（计划文件等）
+.zcode/
+
 # 工具/文档改写快照（.bak 与恢复留痕）
 .hy/snapshots/
 

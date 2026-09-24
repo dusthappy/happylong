@@ -1,7 +1,7 @@
 # happlylong 框架配置（工具与 Skill 共同读取的约定值）
 schema: 2
 framework: happlylong
-version: 0.1.1
+version: 0.1.2
 created: '2026-09-01'
 
 # 指令语言 i18n（完整）：CLI 文案 + 模板 + Skill + AGENTS.md 四层同语言；
@@ -46,8 +46,8 @@ iteration:
     impl_dir: implementation/
     attach_dir: attach/
 
-repo_roles: [frontend, backend, fullstack, lib]
-# 多仓开发顺序：backend 角色仓先行，其余按 profile 声明序
+repo_roles: [frontend, backend, service, fullstack, lib]
+# 多仓开发顺序：backend/service 角色仓先行，其余按 profile 声明序
 dev_repo_order: backend_first
 
 knowledge:

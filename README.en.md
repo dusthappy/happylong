@@ -18,10 +18,13 @@
 
 happlylong (**hy** for short) turns "a product-dev process with a PRD gate" into a set of AI-agent Skills plus a single-file CLI that runs inside your existing editor/terminal:
 
+- **Multiple projects, one workspace**: manage both independent projects and related projects that share a backend or common codebase. Connect repositories through symlinks under `workspace/{project}/code_lib/`, without moving code or changing the original repository structure;
+- **Iterative development with a traceable history**: each requirement becomes a separate iteration, recording its PRD, interface contract, development plan and implementation notes, and test results under `workspace/{project}/iterations/{id}/` for later reference, continuation, and review;
+- **Separate sessions, parallel development**: each AI session explicitly binds to one iteration in one project. Different sessions can advance different projects or different iterations of the same project, with clearly scoped bindings and iteration artifacts. A new unbound session first asks whether to bind an existing iteration or create a new one;
 - **No PRD, no code changes**: every change to a business repo must first go through `/hy-req`, which closes the PRD and its acceptance criteria (AC) — only then may the agent touch code;
-- **Session-scoped iteration isolation**: each agent session binds independently to one iteration through a stable ID, so multiple agents and windows can develop different workspaces in parallel; a new unbound session must explicitly choose an existing or new iteration before execution;
-- **Automatic multi-repo orchestration**: split frontend/backend repos, shared backend mounted by multiple projects — `/hy-dev` orders and routes repos by role automatically;
-- **Traceable iterations**: every iteration writes four flat files (prd / contract / plan / smoke) under `workspace/{project}/iterations/{id}/` — auditable end to end.
+- **Automatic multi-repo orchestration**: split frontend/backend repos, shared backend mounted by multiple projects — `/hy-dev` orders and routes repos by role automatically.
+
+> Session and iteration isolation does not create isolated code copies: symlinks still point to real code directories. When sessions share a codebase, coordinate their scope to avoid simultaneous edits to the same file; serialize configuration changes within the same project.
 
 ## Design principles
 
@@ -147,16 +150,17 @@ Register a project first (real project dirs live on your machine, isolated from 
 
 ```bash
 python3 happlylong.py project new myapp --title "My App"
-# single repo
-python3 happlylong.py link add myapp myapp /abs/path/myapp --role fullstack
+# single repo (--role is mandatory: frontend/backend/service/fullstack/lib; pair with --desc and --lang)
+python3 happlylong.py link add myapp myapp /abs/path/myapp --role fullstack --desc "single fullstack repo"
 # frontend + backend repos
-python3 happlylong.py link add myapp myapp_fe /abs/path/myapp_fe --role frontend
-python3 happlylong.py link add myapp myapp_be /abs/path/myapp_be --role backend
-# shared backend + subproject (multiple projects mount one backend repo, routed by backend_apps submodules)
-python3 happlylong.py link add myapp shared_be /abs/path/shared_be --role backend --shared \
-  --app myapp=api/myapp,internal/biz/myapp,internal/service/myapp,internal/data/myapp,sql/myapp
-# target dir not created yet: register first, link later
-python3 happlylong.py link add myapp myapp_new /abs/path/myapp_new --role frontend --pending
+python3 happlylong.py link add myapp myapp_fe /abs/path/myapp_fe --role frontend --lang typescript --desc "web frontend"
+python3 happlylong.py link add myapp myapp_be /abs/path/myapp_be --role backend --lang go --desc "business backend"
+# shared backend + subproject (multiple projects mount one backend repo, routed by backend_apps submodules; service-layer repos use --role service)
+python3 happlylong.py link add myapp shared_be /abs/path/shared_be --role backend --lang go --shared \
+  --app myapp=api/myapp,internal/biz/myapp,internal/service/myapp,internal/data/myapp,sql/myapp \
+  --desc "shared business backend, coding routed per subproject"
+# target dir not created yet: register first, link later (--lang may declare code languages upfront)
+python3 happlylong.py link add myapp myapp_new /abs/path/myapp_new --role frontend --lang typescript --desc "new admin console" --pending
 python3 happlylong.py link apply myapp          # one-shot linking once the dir exists
 ```
 
@@ -191,7 +195,7 @@ workspace/            Business-project area (local only, whole dir never committ
 
 ## Contributing
 
-Issues and PRs are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first: contributions target the framework layer (tool / skills / templates / shared standards / docs / examples); content from real business projects is not accepted. Please follow the [Code of Conduct](CODE_OF_CONDUCT.md); report security vulnerabilities via the private advisory process in [SECURITY.md](SECURITY.md) (no public issues). See [CHANGELOG.md](CHANGELOG.md) for version history (current release: 0.1.1).
+Issues and PRs are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first: contributions target the framework layer (tool / skills / templates / shared standards / docs / examples); content from real business projects is not accepted. Please follow the [Code of Conduct](CODE_OF_CONDUCT.md); report security vulnerabilities via the private advisory process in [SECURITY.md](SECURITY.md) (no public issues). See [CHANGELOG.md](CHANGELOG.md) for version history (current release: 0.1.2).
 
 ## License
 

@@ -76,7 +76,7 @@ PREFS_FILE = SESSION_DIR / "prefs.yaml"
 LANGUAGES = ("zh", "en")
 
 ITER_TYPES = ("feat", "fix", "refactor", "doc", "chore")
-REPO_ROLES = ("frontend", "backend", "fullstack", "lib")
+REPO_ROLES = ("frontend", "backend", "service", "fullstack", "lib")
 STAGES = ("prd", "dev", "smoke")  # contract 为 _index.yaml 独立字段（/hy-req 内闭合）
 
 ITER_ID_PATTERN = re.compile(r"^(\d{6})-(feat|fix|refactor|doc|chore)-([a-z0-9]+(?:-[a-z0-9]+)*)")
@@ -148,8 +148,6 @@ UI_EN: dict[str, str] = {
     "  知识库未初始化（/hy-knowledge bootstrap 或 knowledge init）": "  knowledge base not initialized (/hy-knowledge bootstrap or knowledge init)",
     "当前会话已绑定 {} / {}，不能只用 --project 切到 {}；请先 session set，或同时指定 --iteration-id": "the current session is bound to {} / {}; --project alone cannot switch to {}; run session set first, or also pass --iteration-id",
     "初始化/自检框架骨架（幂等）": "initialize/self-check the framework skeleton (idempotent)",
-    "知识库未初始化（/hy-knowledge bootstrap 或 knowledge init）": "knowledge base not initialized (/hy-knowledge bootstrap or knowledge init)",
-    "（无活跃迭代）": "(no active iteration)",
     "（未登记仓库）": "(no repos registered)",
     "profile.yaml 含非法仓库名: {}（字母开头，仅 A-Za-z0-9_-；请修正 profile 后重试）": "invalid repo name in profile.yaml: {} (letter first, A-Za-z0-9_- only; fix the profile and retry)",
     "{}/{}: 链接状态 {}（target={}）": "{}/{}: link status {} (target={})",
@@ -196,36 +194,35 @@ UI_EN: dict[str, str] = {
     "登记仓库并建软链": "register a repo and create its symlink",
     "仓库名（code_lib 下的软链名）": "repo name (symlink name under code_lib)",
     "目标仓库绝对路径": "absolute path to the target repo",
-    "frontend/backend/fullstack/lib": "frontend/backend/fullstack/lib",
     "标记为跨项目共享仓": "mark as a cross-project shared repo",
-    "backend 子项目（可多次），如 --app example=api/example,internal/biz/example": "backend subproject (repeatable), e.g. --app example=api/example,internal/biz/example",
+    "显式声明代码类型（可多次），如 --lang go；未给则自动探测": "declare code language explicitly (repeatable), e.g. --lang go; auto-detected when omitted",
+    "一句话功能定位（该仓负责前端/后端/服务层什么职责）": "one-line functional description (what this repo owns: frontend/backend/service-layer duty)",
+    "backend/service 共享仓子项目（可多次），如 --app example=api/example,internal/biz/example": "backend/service shared-repo subproject (repeatable), e.g. --app example=api/example,internal/biz/example",
     "备注（如预留子模块说明）": "note (e.g. reserved-submodule remarks)",
+    "--app 仅用于 backend/service 角色仓库（共享仓子项目）": "--app applies only to backend/service-role repos (shared-repo subprojects)",
+    "代码类型: {}": "code languages: {}",
+    "功能定位: {}": "functional role: {}",
+    "{}/{}: 缺少 desc 功能定位（link add --force --desc 补录，或直接改 profile）": "{}/{}: missing desc (functional role); backfill via link add --force --desc, or edit profile directly",
     "仅登记不建链（目标就绪后 link apply）": "register only, no symlink yet (link apply once the target exists)",
     "覆盖已登记的仓库条目": "overwrite the registered repo entry",
     "非法仓库名: {}（字母开头，允许 A-Za-z0-9_-）": "invalid repo name: {} (letter first, A-Za-z0-9_- allowed)",
     "仓库已登记: {}（重定向请加 --force）": "repo already registered: {} (add --force to redirect)",
-    "--app 仅用于 backend 角色仓库（共享后端子项目）": "--app applies only to backend-role repos (shared-backend subprojects)",
     "--app 格式应为 NAME=path1,path2，收到: {}": "--app format should be NAME=path1,path2, got: {}",
     "--app 非法: {}": "invalid --app: {}",
     "目标必须为绝对路径: {}": "target must be an absolute path: {}",
     "目标不存在，自动按 pending 登记: {}": "target missing; registering as pending automatically: {}",
     "code_lib/{} 是实体目录而非软链，拒绝覆盖，请人工处理": "code_lib/{} is a real directory, not a symlink; refusing to overwrite, resolve manually",
-    "移除旧链后按 pending 登记: code_lib/{}": "old link removed, re-registered as pending: code_lib/{}",
-    "软链已建: code_lib/{} -> {}": "symlink created: code_lib/{} -> {}",
     "已登记 repo {} [{}]{}": "registered repo {} [{}]{}",
     "移除软链与登记": "remove a symlink and its registration",
     "仓库未登记: {}": "repo not registered: {}",
-    "软链已移除: code_lib/{}": "symlink removed: code_lib/{}",
     "code_lib/{} 不是软链而是实体目录，拒绝删除，请人工处理": "code_lib/{} is a real directory, not a symlink; refusing to delete, resolve manually",
     "已从 profile 与 _index 移除 {}": "removed {} from profile and _index",
     "补建 pending 软链": "materialize pending symlinks",
-    "补链完成: code_lib/{} -> {}": "link completed: code_lib/{} -> {}",
     "{}: 目标仍不存在 {}，保持 pending": "{}: target still missing {}, kept pending",
     "补链 {} 个，仍 pending {} 个": "linked {} repos, {} still pending",
     "列出软链健康状态": "list symlink health",
     "仓库未登记于 profile: {}": "repo not registered in profile: {}",
     "{}: 链接状态 {}（target={}）": "{}: link status {} (target={})",
-    "{}/{}: pending（目标未就绪 {}）": "{}/{}: pending (target not ready {})",
     "全部链接健康": "all links healthy",
     "{} 个仓库链接异常，可运行 doctor 诊断": "{} repo links unhealthy; run doctor to diagnose",
     "迭代管理": "iteration management",
@@ -233,7 +230,6 @@ UI_EN: dict[str, str] = {
     "需求标题（同时用于生成 slug）": "requirement title (also generates the slug)",
     "覆盖自动 slug": "override the auto slug",
     "覆盖完整迭代 ID": "override the full iteration ID",
-    "feat|fix|refactor|doc|chore": "feat|fix|refactor|doc|chore",
     "非法迭代 ID: {}（格式 {}）": "invalid iteration ID: {} (format {})",
     "语言偏好文件格式错误（应为 YAML 对象）: {}": "invalid language prefs format (expected a YAML object): {}",
     "缺少发布文件: {}": "missing release file: {}",
@@ -280,7 +276,6 @@ UI_EN: dict[str, str] = {
     "临时会话文件清理失败: {}（{}）": "failed to clean up temporary session file: {} ({})",
     "当前会话未绑定。执行型请求前必须 Ask-First: 选择绑定已有迭代（先 iter list，再 session set）或创建新迭代（/hy-req --title）；禁止自动选择": "the current session is unbound. Before an execution request, Ask-First whether to bind an existing iteration (iter list, then session set) or create a new one (/hy-req --title); never choose automatically",
     "无活跃会话": "no active session",
-    "（无活跃迭代）": "(no active iteration)",
     "活跃迭代: {} / {}": "active iteration: {} / {}",
     "会话指向不存在的迭代: {} / {}": "session points to a missing iteration: {} / {}",
     "当前会话指向已关闭迭代: happlylong.py session back 返回上一绑定，或 iter list 另选": "session points to a closed iteration; happlylong.py session back returns to the previous binding, or iter list to pick another",
@@ -305,11 +300,12 @@ UI_EN: dict[str, str] = {
     "（未登记仓库）": "(no repos registered)",
     "{}/{}: 缺 overview.md（/hy-knowledge bootstrap 注入）": "{}/{}: missing overview.md (inject via /hy-knowledge bootstrap)",
     "{}/{}: 语言探测 {} 与登记 {} 不同（人工确认后可改 profile）": "{}/{}: detected language {} differs from registered {} (edit profile after confirming)",
-    "知识库未初始化（/hy-knowledge bootstrap 或 knowledge init）": "knowledge base not initialized (/hy-knowledge bootstrap or knowledge init)",
     "注入内容: /hy-knowledge bootstrap": "to inject: /hy-knowledge bootstrap",
     "总览: 项目/会话/最近迭代": "overview: projects/session/recent iterations",
     "已安装 Skill: {} 个 -> {}": "installed skills: {} -> {}",
     "已中断": "interrupted",
+    "（pending，目标就绪后 link apply 补链）": "(pending; run link apply once the target is ready)",
+    "frontend/backend/service/fullstack/lib（必须显式声明）": "frontend/backend/service/fullstack/lib (explicit declaration required)",
 }
 
 
@@ -768,12 +764,14 @@ def read_profile(project: str) -> dict[str, Any]:
             if key in entry and not isinstance(entry[key], bool):
                 raise HyError(ui("配置字段无效: {} ({})", profile_path(project), f"{name}.{key}"))
         if "langs" in entry and (not isinstance(entry["langs"], list)
-                                  or any(not isinstance(v, str) for v in entry["langs"])):
+                                  or any(not isinstance(v, str) or not v.strip() for v in entry["langs"])):
             raise HyError(ui("配置字段无效: {} ({})", profile_path(project), f"{name}.langs"))
+        if "desc" in entry and (not isinstance(entry["desc"], str) or not entry["desc"].strip()):
+            raise HyError(ui("配置字段无效: {} ({})", profile_path(project), f"{name}.desc"))
         if "backend_apps" in entry:
             apps = yaml_object(entry["backend_apps"], f"{name}.backend_apps")
-            if entry["role"] != "backend":
-                raise HyError(ui("--app 仅用于 backend 角色仓库（共享后端子项目）"))
+            if entry["role"] not in ("backend", "service"):
+                raise HyError(ui("--app 仅用于 backend/service 角色仓库（共享仓子项目）"))
             for app, settings in apps.items():
                 settings = yaml_object(settings, f"{name}.{app}")
                 validate_app_paths(app, settings.get("paths"))
@@ -1035,8 +1033,9 @@ def cmd_link_add(args: argparse.Namespace) -> int:
         raise HyError(ui('非法仓库名: {}（字母开头，允许 A-Za-z0-9_-）', args.repo))
     # 所有可失败的校验先于建链副作用，避免校验失败留下未登记的孤儿软链
     apps = parse_app_spec(args.app)
-    if apps and args.role != "backend":
-        raise HyError(ui("--app 仅用于 backend 角色仓库（共享后端子项目）"))
+    if apps and args.role not in ("backend", "service"):
+        raise HyError(ui("--app 仅用于 backend/service 角色仓库（共享仓子项目）"))
+    declared_langs = list(dict.fromkeys(v.strip().lower() for v in args.lang if v.strip()))
 
     target = Path(args.target).expanduser()
     target = Path(os.path.normpath(target))
@@ -1060,9 +1059,12 @@ def cmd_link_add(args: argparse.Namespace) -> int:
         entry["pending"] = True
     if args.shared:
         entry["shared"] = True
-    entry["langs"] = detect_langs(target) if target.exists() else []
+    # 代码类型：显式 --lang 优先，未声明且目标就绪时回退自动探测
+    entry["langs"] = declared_langs or (detect_langs(target) if target.exists() else [])
     if apps:
         entry["backend_apps"] = apps
+    if args.desc:
+        entry["desc"] = args.desc
     if args.note:
         entry["note"] = args.note
     repos[args.repo] = entry
@@ -1076,10 +1078,14 @@ def cmd_link_add(args: argparse.Namespace) -> int:
             link_path.symlink_to(target, target_is_directory=True)
         write_yaml_file(profile_path(args.project), profile)
         write_yaml_file(WORKSPACE_INDEX, registry)
-    state = "（pending，目标就绪后 link apply 补链）" if pending else ""
+    state = ui("（pending，目标就绪后 link apply 补链）") if pending else ""
     info(ui('已登记 repo {} [{}]{}', args.repo, args.role, state))
+    if entry["langs"]:
+        info(ui('代码类型: {}', ", ".join(entry["langs"])))
     if args.app:
         info(f"backend_apps: {', '.join(apps)}")
+    if args.desc:
+        info(ui('功能定位: {}', args.desc))
     return 0
 
 
@@ -1180,8 +1186,12 @@ def cmd_link_list(args: argparse.Namespace) -> int:
                 extra.append("shared")
             if entry.get("backend_apps"):
                 extra.append("apps=" + ",".join(entry["backend_apps"]))
+            if entry.get("langs"):
+                extra.append("langs=" + ",".join(entry["langs"]))
             print(f"  {name:<14} [{marker:<7}] {' '.join(extra)}")
             print(f"  {'':<14} -> {entry.get('target', '?')}")
+            if entry.get("desc"):
+                print(f"  {'':<14} # {entry['desc']}")
             if state in ("broken", "no-link", "mismatch"):
                 total_bad += 1
     print()
@@ -1629,6 +1639,8 @@ def run_doctor(fix: bool = False) -> tuple[int, list[str]]:
                     continue
                 if detected and entry.get("langs") and sorted(detected) != sorted(entry.get("langs", [])):
                     warn(ui('{}/{}: 语言探测 {} 与登记 {} 不同（人工确认后可改 profile）', pdir.name, name, detected, entry.get("langs")))
+                if not entry.get("desc"):
+                    warn(ui('{}/{}: 缺少 desc 功能定位（link add --force --desc 补录，或直接改 profile）', pdir.name, name))
             else:
                 problems.append(f"{pdir.name}/{name}: 链接状态 {state}")
                 fail(ui('{}/{}: 链接状态 {}（target={}）', pdir.name, name, state, target))
@@ -2188,10 +2200,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_add.add_argument("project")
     p_add.add_argument("repo", help=ui("仓库名（code_lib 下的软链名）"))
     p_add.add_argument("target", help=ui("目标仓库绝对路径"))
-    p_add.add_argument("--role", choices=REPO_ROLES, default="fullstack", help="frontend/backend/fullstack/lib")
+    p_add.add_argument("--role", choices=REPO_ROLES, required=True,
+                       help=ui("frontend/backend/service/fullstack/lib（必须显式声明）"))
+    p_add.add_argument("--lang", action="append", default=[], metavar="LANG",
+                       help=ui("显式声明代码类型（可多次），如 --lang go；未给则自动探测"))
+    p_add.add_argument("--desc", default="", help=ui("一句话功能定位（该仓负责前端/后端/服务层什么职责）"))
     p_add.add_argument("--shared", action="store_true", help=ui("标记为跨项目共享仓"))
     p_add.add_argument("--app", action="append", default=[], metavar="NAME=PATH,PATH",
-                       help=ui("backend 子项目（可多次），如 --app example=api/example,internal/biz/example"))
+                       help=ui("backend/service 共享仓子项目（可多次），如 --app example=api/example,internal/biz/example"))
     p_add.add_argument("--note", default="", help=ui("备注（如预留子模块说明）"))
     p_add.add_argument("--pending", action="store_true", help=ui("仅登记不建链（目标就绪后 link apply）"))
     p_add.add_argument("--force", action="store_true", help=ui("覆盖已登记的仓库条目"))

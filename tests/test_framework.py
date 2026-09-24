@@ -601,7 +601,8 @@ class TestAuditReleaseFixes(unittest.TestCase):
         target = self.tmp / "realrepo"
         target.mkdir()
         args = argparse.Namespace(project="demo", repo="orphan", target=str(target), role="fullstack",
-                                  shared=False, app=["sub=api/sub"], note="", pending=False, force=False)
+                                  lang=[], desc="", shared=False, app=["sub=api/sub"], note="",
+                                  pending=False, force=False)
         with self.assertRaises(hy.HyError):
             self._run(hy.cmd_link_add, args)
         link = hy.WORKSPACE_ROOT / "demo" / "code_lib" / "orphan"
@@ -619,10 +620,10 @@ class TestAuditReleaseFixes(unittest.TestCase):
         ready.mkdir()
         self._run(hy.cmd_link_add, argparse.Namespace(
             project="demo", repo="ghost", target=str(self.tmp / "not-ready"), role="lib",
-            shared=False, app=[], note="", pending=True, force=False))
+            lang=[], desc="", shared=False, app=[], note="", pending=True, force=False))
         self._run(hy.cmd_link_add, argparse.Namespace(
             project="demo", repo="ready", target=str(ready), role="lib",
-            shared=False, app=[], note="", pending=True, force=False))
+            lang=[], desc="", shared=False, app=[], note="", pending=True, force=False))
         with mock.patch.object(hy, "resolve_language", return_value="zh"):
             rc, out = self._run(hy.cmd_link_apply, argparse.Namespace(project="demo"))
         self.assertEqual(rc, 0, out)
@@ -640,7 +641,7 @@ class TestAuditReleaseFixes(unittest.TestCase):
         entry = {"role": "lib", "target": str(good)}
         self._run(hy.cmd_link_add, argparse.Namespace(
             project="demo", repo="moved", target=str(good), role="lib",
-            shared=False, app=[], note="", pending=False, force=False))
+            lang=[], desc="", shared=False, app=[], note="", pending=False, force=False))
         link = hy.WORKSPACE_ROOT / "demo" / "code_lib" / "moved"
         self.assertEqual(hy.link_status("demo", "moved", entry), "ok")
         link.unlink()
@@ -730,7 +731,7 @@ class TestAuditReleaseFixes(unittest.TestCase):
 
     def _link_args(self, target, repo="repo", **changes):
         values = dict(project="demo", repo=repo, target=str(target), role="lib",
-                      shared=False, app=[], note="", pending=False, force=False)
+                      lang=[], desc="", shared=False, app=[], note="", pending=False, force=False)
         return argparse.Namespace(**{**values, **changes})
 
     def _release_copy(self):
@@ -1032,6 +1033,105 @@ class TestAuditReleaseFixes(unittest.TestCase):
         fixture.write_bytes(("github_pat_" + "AUDIT_FIXTURE_" * 3).encode("utf-16"))
         rc, output = self._run(hy.cmd_release_check, argparse.Namespace())
         self.assertEqual(rc, 1, output)
+
+
+class TestLinkExplicitRegistration(unittest.TestCase):
+    """软链登记显式化回归：--role 必填、service 角色、--lang 显式声明、--desc 功能定位。"""
+
+    SANDBOX_GLOBALS = (
+        "ROOT", "WORKSPACE_ROOT", "WORKSPACE_INDEX", "HY_DIR", "I18N_DIR",
+        "SESSION_DIR", "SESSION_BINDINGS_DIR", "PREFS_FILE",
+    )
+
+    def setUp(self):
+        self.original = {name: getattr(hy, name) for name in self.SANDBOX_GLOBALS}
+        self.tmp = pathlib.Path(tempfile.mkdtemp(prefix="hy-link-explicit-"))
+        hy.ROOT = self.tmp
+        hy.WORKSPACE_ROOT = self.tmp / "workspace"
+        hy.WORKSPACE_INDEX = self.tmp / "workspace" / "_index.yaml"
+        hy.HY_DIR = self.tmp / ".hy"
+        hy.I18N_DIR = self.original["I18N_DIR"]  # 只读复用真实双语模板
+        hy.SESSION_DIR = self.tmp / ".hy" / "session"
+        hy.SESSION_BINDINGS_DIR = self.tmp / ".hy" / "session" / "bindings"
+        hy.PREFS_FILE = self.tmp / ".hy" / "session" / "prefs.yaml"
+
+    def tearDown(self):
+        for name, value in self.original.items():
+            setattr(hy, name, value)
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _run(self, fn, *args):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
+            rc = fn(*args)
+        return rc, out.getvalue()
+
+    def _project(self, name="demo"):
+        rc, out = self._run(hy.cmd_project_new, argparse.Namespace(name=name, title="Demo", description=""))
+        self.assertEqual(rc, 0, out)
+
+    def _link_args(self, target, repo="repo", **changes):
+        values = dict(project="demo", repo=repo, target=str(target), role="lib",
+                      lang=[], desc="", shared=False, app=[], note="", pending=False, force=False)
+        return argparse.Namespace(**{**values, **changes})
+
+    def test_link_add_requires_explicit_role(self):
+        parser = hy.build_parser()
+        with self.assertRaises(SystemExit):
+            parser.parse_args(["link", "add", "demo", "repo", "/abs/repo"])  # 缺 --role 必须拒绝
+        parsed = parser.parse_args(["link", "add", "demo", "repo", "/abs/repo", "--role", "service"])
+        self.assertEqual(parsed.role, "service")
+        self.assertEqual(parsed.lang, [])
+        self.assertEqual(parsed.desc, "")
+
+    def test_service_role_supports_shared_app_routing(self):
+        self._project()
+        target = self.tmp / "svc"
+        target.mkdir()
+        rc, out = self._run(hy.cmd_link_add, self._link_args(
+            target, repo="svc", role="service", shared=True, app=["demo=api/demo,internal/demo"]))
+        self.assertEqual(rc, 0, out)
+        entry = hy.read_profile("demo")["repos"]["svc"]
+        self.assertEqual(entry["role"], "service")
+        self.assertEqual(entry["backend_apps"]["demo"]["paths"], ["api/demo", "internal/demo"])
+        # frontend/fullstack 仓仍然禁止 --app
+        with self.assertRaises(hy.HyError):
+            self._run(hy.cmd_link_add, self._link_args(
+                target, repo="fe", role="frontend", force=True, app=["demo=api/demo"]))
+
+    def test_explicit_lang_overrides_detection_and_pending_declaration(self):
+        self._project()
+        go_repo = self.tmp / "go_repo"
+        go_repo.mkdir()
+        (go_repo / "go.mod").write_text("module demo\n", encoding="utf-8")
+        self._run(hy.cmd_link_add, self._link_args(go_repo, repo="go_repo", role="backend", lang=["Python", " go "]))
+        entry = hy.read_profile("demo")["repos"]["go_repo"]
+        self.assertEqual(entry["langs"], ["python", "go"])  # 显式声明优先且小写去重，不走探测
+        pending_repo = self.tmp / "not-ready"
+        self._run(hy.cmd_link_add, self._link_args(pending_repo, repo="later", role="frontend",
+                                                   lang=["vue"], pending=True))
+        entry = hy.read_profile("demo")["repos"]["later"]
+        self.assertEqual(entry["langs"], ["vue"])  # pending 仓也可预先声明代码类型
+
+    def test_desc_registration_validation_and_list_display(self):
+        self._project()
+        target = self.tmp / "fe"
+        target.mkdir()
+        self._run(hy.cmd_link_add, self._link_args(target, role="frontend", desc="负责 H5 端页面与交互"))
+        self._run(hy.cmd_link_add, self._link_args(target, repo="bare", role="frontend", force=True))
+        with mock.patch.object(hy, "resolve_language", return_value="zh"):
+            rc, out = self._run(hy.cmd_link_list, argparse.Namespace(project="demo"))
+        self.assertIn("# 负责 H5 端页面与交互", out)
+        entry = hy.read_profile("demo")["repos"]["repo"]
+        self.assertEqual(entry["desc"], "负责 H5 端页面与交互")
+        self.assertNotIn("desc", hy.read_profile("demo")["repos"]["bare"])
+        # profile 手工写坏 desc 必须被校验拦截
+        profile_path = hy.WORKSPACE_ROOT / "demo" / "profile.yaml"
+        broken = hy.read_yaml_file(profile_path)
+        broken["repos"]["bare"]["desc"] = "   "
+        hy.write_yaml_file(profile_path, broken)
+        with self.assertRaises(hy.HyError):
+            hy.read_profile("demo")
 
 
 if __name__ == "__main__":

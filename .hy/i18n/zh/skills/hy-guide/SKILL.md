@@ -65,7 +65,7 @@ metadata:
 |------|------|
 | project | `workspace/` 下的业务项目位（如 example、example_game 等示例） |
 | repo | `code_lib/` 下一条软链对应的真实代码库 |
-| role | 仓库角色：frontend / backend / fullstack / lib |
+| role | 仓库角色：frontend / backend / service / fullstack / lib（登记必须显式声明） |
 | shared 仓 | 被多个 project 同时挂载的后端仓（如 shared_be） |
 | backend_apps | 共享仓内的业务子模块（如 shared_be 的 example：api/example、internal/{biz,service,data}/example、sql/example） |
 | pending 仓 | 已登记、目标目录未就绪、软链待补的仓库 |

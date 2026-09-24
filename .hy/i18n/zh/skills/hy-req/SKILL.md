@@ -75,11 +75,12 @@ workspace/{project}/iterations/{YYMMDD}-{type}-{slug}/
 | 内容特征 | 判定 |
 |----------|------|
 | 纯接口/表/后台逻辑 | backend 仓（共享仓时指明 backend_app 名） |
+| 网关/BFF/中间层逻辑 | service 仓（共享仓时指明 backend_app 名） |
 | 纯页面/交互/UI | frontend 仓（多前端仓时按平台特征细分：mobile uni-app / pc react / cocos） |
-| 两者皆涉 | 双仓，backend 在前（dev 自动串联 BE→FE） |
+| 两者皆涉 | 双仓，backend/service 在前（dev 自动串联服务端→前端） |
 | 单仓项目（example_rs） | 该仓 |
 
-回写 `_index.yaml → repos_in_scope`（backend 在前的顺序）。仅当 PRD 信息完全无法支撑判断时才停下问（卡点）。
+回写 `_index.yaml → repos_in_scope`（backend/service 在前的顺序）。仅当 PRD 信息完全无法支撑判断时才停下问（卡点）。
 
 ### ⑤ 契约三分支
 

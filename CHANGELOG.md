@@ -10,8 +10,17 @@
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-09-24
+
+### Added
+
+- 2026-09-24：软链登记显式化——`link add` 的 `--role` 改为必填，role 枚举新增 `service`（服务层）角色；新增 `--desc`（一句话功能定位）与 `--lang`（显式代码类型，可多次，pending 仓可预声明）参数，显式声明优先于自动探测；`--app` 子项目路由放开到 backend/service 共享仓；`link list` 全景展示 role/shared/apps/langs 与功能定位，doctor 对缺失 desc 输出提醒；双语 Skill（hy-project/guide/spec/dev/req）、AGENTS.md 语言源、profile 模板与中英 README 三模式示例同步更新，存量 6 个项目 12 条仓库登记补齐功能定位
+
+
 ### Changed
 
+- 2026-09-24：中英文一致性清理——CLI 文案表与 `ui()` 调用键双向核对归零（删 10 条失效翻译），`--role` 帮助与 pending 状态提示纳入 i18n 渲染；双语 Skill 源（标题层级/代码块结构）、模板占位符、AGENTS.md 章节与根安装产物扫描全部对齐
+- 2026-09-09：中英文 README 补充独立/关联项目软链接入、迭代全过程留痕与多会话并行开发说明，并明确共享代码目录及项目配置的并发修改边界
 - 2026-09-09：中英文 README 快速上手改为“安装初始化→接入代码项目→AI 对话提需求”三步，说明 PyYAML 的用途、独立 Python 环境、命令执行位置与成功标志；会话及语言协议移至后续配置章节
 
 ### Fixed

@@ -11,7 +11,8 @@ stack:
   frameworks: []
 
 # Codebase registry (maintained by happlylong.py link add)
-# Fields: role(frontend|backend|fullstack|lib) / target(absolute path) / langs /
-#         shared(cross-project shared repo) / backend_apps(shared-backend subprojects) / pending(target not ready)
+# Fields: role(frontend|backend|service|fullstack|lib) / target(absolute path) / langs /
+#         desc(one-line functional role) / shared(cross-project shared repo) /
+#         backend_apps(shared-repo subprojects) / pending(target not ready) / note
 # Active iterations are not stored in the project profile; each agent session has its own binding under .hy/session/bindings/.
 repos: {}

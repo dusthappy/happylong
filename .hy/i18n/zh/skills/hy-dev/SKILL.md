@@ -24,7 +24,7 @@ metadata:
 
 - `stages.prd == done`，否则中止并指引 `/hy-req`（**无 PRD 禁改码**）。
 - 仓集合 = `_index.yaml → repos_in_scope`；为空时按 PRD 重判并回写（判定规则见 `/hy-req` ④ 仓库面判定）。
-- 加载 `workspace/{project}/profile.yaml`：确认各仓 role、共享仓 `backend_apps`；加载 `shared/` 中与涉及语言对应的规范。
+- 加载 `workspace/{project}/profile.yaml`：确认各仓 role 与 desc 功能定位、共享仓 `backend_apps`；加载 `shared/` 中与涉及语言对应的规范。
 - 涉及仓若已有 `knowledge/{repo}/overview.md`（含 api/data）→ 作为仓库认知上下文加载（约定要点、既有接口与表以知识库+代码为准，知识过期时顺手提出刷新建议）。
 
 ## 状态机（每仓命中第一个未完成阶段）
@@ -32,7 +32,7 @@ metadata:
 ```
 /hy-dev [--repo {name}]
   │
-  ├─ 仓集合与顺序：repos_in_scope（backend 在前）；--repo 聚焦单仓
+  ├─ 仓集合与顺序：repos_in_scope（backend/service 在前）；--repo 聚焦单仓
   │
   ├─ 对每个仓，依次检查：
   │    contract 字段未 done/skipped 且 PRD 有数据影响 ─→ 阶段0 契约兜底

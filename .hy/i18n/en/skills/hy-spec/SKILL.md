@@ -41,7 +41,7 @@ metadata:
 - Output must not leave placeholder residue: `TODO` / `待补充` / `TBD` / `FIXME` / `XXX`.
 - Document-type artifacts must update the revision history table.
 - Load standards by language: whichever code you touch, load the matching file from `shared/standards/` plus `coding-standards.md`; add `security-rules.md` / `testing-standards.md` when security/testing is involved.
-- Repo roles and dev order: backend first, the rest in `profile.yaml → repos` declaration order; shared-repo (shared_be) changes must stay inside `backend_apps.{name}.paths` — crossing the boundary is a scope checkpoint.
+- Repo roles and dev order: backend/service first, the rest in `profile.yaml → repos` declaration order; registration requires explicit `--role` plus `--desc`/`--lang`; shared-repo (shared_be) changes must stay inside `backend_apps.{name}.paths` — crossing the boundary is a scope checkpoint.
 
 ## 2. Skill execution lifecycle (five steps)
 

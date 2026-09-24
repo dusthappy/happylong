@@ -19,14 +19,15 @@ Each symlink is registered into `workspace/{project}/profile.yaml → repos`:
 ```yaml
 repos:
   example_fe:                    # repo name = symlink name under code_lib/
-    role: frontend               # frontend | backend | fullstack | lib
+    role: frontend               # frontend | backend | service | fullstack | lib (--role is mandatory at registration)
+    desc: owns demo web pages and interactions # one-line functional role (recommended; doctor warns when missing)
     target: /abs/path/example_fe # absolute path
-    langs: [typescript, vue]     # auto-detected, hand-editable
+    langs: [typescript, vue]     # code languages: explicit --lang wins, else auto-detected, hand-editable
   shared_be:
     role: backend
     shared: true                 # cross-project shared repo (mounted by both example and example_game)
     target: /abs/path/shared_be
-    backend_apps:                # business submodules inside the shared repo (coding route scope)
+    backend_apps:                # business submodules inside the shared repo (coding route scope; backend/service repos)
       example:
         title: example backend submodule
         paths: [api/example, internal/biz/example, internal/service/example,
@@ -37,9 +38,10 @@ repos:
 ```
 
 Rules:
-- **role decides dev order**: backend repos first, the rest in declaration order (`/hy-dev` chains on this rule).
+- **registration declares responsibility**: `--role` is mandatory — state whether each repo is frontend, backend, service layer, fullstack, or lib; pair each repo with `--desc` (one-line functional role) and `--lang` (code languages); doctor warns on missing desc.
+- **role decides dev order**: backend/service repos first, the rest in declaration order (`/hy-dev` chains on this rule).
 - **shared repos must declare backend_apps**: coding is confined to paths — crossing the boundary is a scope checkpoint (Ask-First).
-- **pending**: register first when the target dir doesn't exist yet, link later; no dangling symlinks.
+- **pending**: register first when the target dir doesn't exist yet, link later; no dangling symlinks (`--lang` may declare code languages upfront).
 
 ## Three onboarding modes (copy and change the paths)
 
@@ -47,15 +49,15 @@ Rules:
 
 ```bash
 python3 happlylong.py project new demo --title "Demo"
-python3 happlylong.py link add demo demo /abs/demo --role fullstack
+python3 happlylong.py link add demo demo /abs/demo --role fullstack --desc "single fullstack repo: pages and API in one"
 ```
 
 ### Mode B · FE + BE dual repos (example style)
 
 ```bash
 python3 happlylong.py project new demo --title "Demo"
-python3 happlylong.py link add demo demo /abs/demo_fe --role frontend
-python3 happlylong.py link add demo demo_be /abs/demo_be --role backend
+python3 happlylong.py link add demo demo /abs/demo_fe --role frontend --lang typescript --desc "demo web frontend (Vue)"
+python3 happlylong.py link add demo demo_be /abs/demo_be --role backend --lang go --desc "demo business backend"
 # multiple frontends (example_fe style): keep adding role=frontend links (declaration order = dev order)
 ```
 
@@ -63,19 +65,22 @@ python3 happlylong.py link add demo demo_be /abs/demo_be --role backend
 
 ```bash
 python3 happlylong.py project new demo --title "Demo"
-python3 happlylong.py link add demo demo /abs/demo_fe --role frontend
-python3 happlylong.py link add demo shared_be /abs/shared_be --role backend --shared \
+python3 happlylong.py link add demo demo /abs/demo_fe --role frontend --lang typescript --desc "demo web frontend (Vue)"
+python3 happlylong.py link add demo shared_be /abs/shared_be --role backend --lang go --shared \
   --app demo=api/demo,internal/biz/demo,internal/service/demo,internal/data/demo,sql/demo \
+  --desc "shared business backend, coding routed per subproject" \
   --note "follows shared_be layering conventions; adjust the profile if the subproject paths differ once created"
 ```
+
+> Pure service-layer repos (gateway/BFF/middleware) use `--role service`; when shared, they likewise route subprojects via `--app`.
 
 > Mounting the same shared repo into multiple projects is **expected behavior** (shared_be sits under both example and example_game); iteration artifacts stay separate per project in their own `iterations/`.
 
 ## Pending workflow
 
 ```bash
-# register (no dangling link even if the target doesn't exist)
-python3 happlylong.py link add demo demo_new /abs/demo_new --role frontend --pending
+# register (no dangling link even if the target doesn't exist; --lang may declare code languages upfront)
+python3 happlylong.py link add demo demo_new /abs/demo_new --role frontend --lang typescript --desc "new admin console" --pending
 # one-shot linking once the target exists (doctor also reports pending)
 python3 happlylong.py link apply demo
 ```
@@ -83,7 +88,7 @@ python3 happlylong.py link apply demo
 ## Inspection
 
 ```bash
-python3 happlylong.py link list [project]   # ok / pending / broken / no-link
+python3 happlylong.py link list [project]   # status + full role/langs/desc picture
 python3 happlylong.py doctor --fix          # full check + auto-fix _index/profile drift
 ```
 
@@ -96,7 +101,8 @@ Troubleshooting:
 
 1. Confirm that you are invoking the intended framework's `happlylong.py`; from another cwd, use the script's absolute path and never infer framework state from the cwd.
 2. `link add` targets must be absolute paths; relative paths are always rejected.
-3. After onboarding, fill `profile.yaml → stack.langs/frameworks` by hand (doctor only warns on detection drift).
+3. `--role` must be declared explicitly; complete each repo with `--desc` (functional role) and `--lang` (code languages) — `link list` should read as "which repo does what, on which stack" from the registry alone.
+4. After onboarding, fill `profile.yaml → stack.langs/frameworks` by hand (doctor only warns on detection drift).
 
 ## [Next Steps]
 

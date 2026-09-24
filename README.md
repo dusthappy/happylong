@@ -18,10 +18,13 @@
 
 happlylong（缩写 **hy**）把「带 PRD 门槛的产研流程」做成一套 AI 代理 Skill + 单文件工具，跑在你已有的编辑器/终端里：
 
+- **多个项目，统一管理**：既支持彼此独立的项目，也支持共享后端或公共代码库的关联项目。通过软链将代码库接入 `workspace/{project}/code_lib/`，无需搬动代码或改变原仓库结构；
+- **按迭代推进，全过程可追溯**：每次需求作为独立迭代，持续记录需求文档（PRD）、接口契约、开发计划与实现记录、测试结果，统一保存在 `workspace/{project}/iterations/{id}/`，方便回顾、接续和复检；
+- **不同会话，并行开发**：每个 AI 会话明确绑定一个项目的一次迭代，不同会话可分别推进不同项目或同一项目的不同迭代，绑定信息和迭代产物各自归属明确。未绑定的新会话会先询问绑定已有迭代还是创建新迭代；
 - **无 PRD 禁改码**：所有业务仓库改动必须先过 `/hy-req` 闭合 PRD 与验收标准（AC），AI 代理才能动代码；
-- **会话级迭代隔离**：每个代理会话凭稳定 ID 独立绑定一个迭代，多 Agent、多窗口可并行开发不同 workspace；未绑定的新会话在执行前必须明确选择绑定已有或创建新迭代；
-- **多仓自动串联**：前后端分离、共享后端多项目挂载，`/hy-dev` 按角色自动排序与路由；
-- **全链路留痕**：每次迭代在 `workspace/{project}/iterations/{id}/` 落下 prd/contract/plan/smoke 四个单文件，可回溯可审计。
+- **多仓自动串联**：前后端分离、共享后端多项目挂载，`/hy-dev` 按角色自动排序与路由。
+
+> 会话与迭代隔离不等于代码副本隔离：软链仍指向真实代码目录。多个会话涉及同一代码库时，需协调修改范围，避免同时改写同一文件；同一项目的配置变更应串行执行。
 
 ## 设计理念
 
@@ -147,16 +150,17 @@ PowerShell 等价写法为 `$env:HY_SESSION_ID = "claude:project-a:conversation-
 
 ```bash
 python3 happlylong.py project new myapp --title "我的应用"
-# 单仓
-python3 happlylong.py link add myapp myapp /abs/path/myapp --role fullstack
+# 单仓（--role 必填：frontend/backend/service/fullstack/lib；建议配 --desc 与 --lang）
+python3 happlylong.py link add myapp myapp /abs/path/myapp --role fullstack --desc "单仓全栈"
 # 前后端双仓
-python3 happlylong.py link add myapp myapp_fe /abs/path/myapp_fe --role frontend
-python3 happlylong.py link add myapp myapp_be /abs/path/myapp_be --role backend
-# 共享后端 + 子项目（多项目挂同一后端仓，按 backend_apps 子模块路由）
-python3 happlylong.py link add myapp shared_be /abs/path/shared_be --role backend --shared \
-  --app myapp=api/myapp,internal/biz/myapp,internal/service/myapp,internal/data/myapp,sql/myapp
-# 目标目录还没建好：先登记后补链
-python3 happlylong.py link add myapp myapp_new /abs/path/myapp_new --role frontend --pending
+python3 happlylong.py link add myapp myapp_fe /abs/path/myapp_fe --role frontend --lang typescript --desc "Web 前端"
+python3 happlylong.py link add myapp myapp_be /abs/path/myapp_be --role backend --lang go --desc "业务后端"
+# 共享后端 + 子项目（多项目挂同一后端仓，按 backend_apps 子模块路由；服务层仓用 --role service）
+python3 happlylong.py link add myapp shared_be /abs/path/shared_be --role backend --lang go --shared \
+  --app myapp=api/myapp,internal/biz/myapp,internal/service/myapp,internal/data/myapp,sql/myapp \
+  --desc "共享业务后端，按子项目路由落码"
+# 目标目录还没建好：先登记后补链（--lang 可预先声明代码类型）
+python3 happlylong.py link add myapp myapp_new /abs/path/myapp_new --role frontend --lang typescript --desc "新增管理端" --pending
 python3 happlylong.py link apply myapp          # 目录就绪后一键补链
 ```
 
@@ -191,7 +195,7 @@ workspace/            业务项目位（本机私有，整目录不入库）：_
 
 ## 贡献
 
-欢迎 Issue 与 PR。贡献前请读 [CONTRIBUTING.md](CONTRIBUTING.md)：贡献范围限于框架层（工具/Skill/模板/通用规范/文档/示例），不接受任何真实业务项目内容；参与社区请遵循[行为准则](CODE_OF_CONDUCT.md)，安全漏洞请走 [SECURITY.md](SECURITY.md) 的私密通告流程（勿开公开 Issue）。版本历史见 [CHANGELOG.md](CHANGELOG.md)（当前版本 0.1.1）。
+欢迎 Issue 与 PR。贡献前请读 [CONTRIBUTING.md](CONTRIBUTING.md)：贡献范围限于框架层（工具/Skill/模板/通用规范/文档/示例），不接受任何真实业务项目内容；参与社区请遵循[行为准则](CODE_OF_CONDUCT.md)，安全漏洞请走 [SECURITY.md](SECURITY.md) 的私密通告流程（勿开公开 Issue）。版本历史见 [CHANGELOG.md](CHANGELOG.md)（当前版本 0.1.2）。
 
 ## 许可证
 

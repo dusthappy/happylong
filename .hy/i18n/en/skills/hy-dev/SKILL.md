@@ -24,7 +24,7 @@ metadata:
 
 - `stages.prd == done`, otherwise abort and point to `/hy-req` (**no PRD, no code changes**).
 - Repo set = `_index.yaml → repos_in_scope`; if empty, re-judge from the PRD and write back (rules in `/hy-req` step ④ in-scope repo decision).
-- Load `workspace/{project}/profile.yaml`: confirm each repo's role and shared-repo `backend_apps`; load the `shared/` standards matching the languages involved.
+- Load `workspace/{project}/profile.yaml`: confirm each repo's role and desc (functional role), plus shared-repo `backend_apps`; load the `shared/` standards matching the languages involved.
 - If an involved repo already has `knowledge/{repo}/overview.md` (with api/data) → load it as repo-understanding context (conventions and existing interfaces/tables follow knowledge + code; if knowledge is stale, suggest a refresh in passing).
 
 ## State machine (per repo, first unfinished stage wins)
@@ -32,7 +32,7 @@ metadata:
 ```
 /hy-dev [--repo {name}]
   │
-  ├─ repo set and order: repos_in_scope (backend first); --repo focuses one repo
+  ├─ repo set and order: repos_in_scope (backend/service first); --repo focuses one repo
   │
   ├─ for each repo, check in order:
   │    contract field not done/skipped and the PRD has data impact ─→ stage 0 contract fallback

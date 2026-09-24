@@ -75,11 +75,12 @@ Decide from the PRD content and **execute directly, without asking the user** (r
 | Content signature | Decision |
 |--------------------|----------|
 | Pure API/tables/backend logic | backend repo (for shared repos, name the backend_app) |
+| Gateway/BFF/middleware logic | service repo (for shared repos, name the backend_app) |
 | Pure pages/interactions/UI | frontend repo (with multiple FE repos, split by platform: mobile uni-app / pc react / cocos) |
-| Both | two repos, backend first (dev auto-chains BE→FE) |
+| Both | two repos, backend/service first (dev auto-chains server→frontend) |
 | Single-repo project (example_rs) | that repo |
 
-Write back `_index.yaml → repos_in_scope` (backend first). Stop and ask only when the PRD gives absolutely no basis for judging (checkpoint).
+Write back `_index.yaml → repos_in_scope` (backend/service first). Stop and ask only when the PRD gives absolutely no basis for judging (checkpoint).
 
 ### ⑤ Contract branching
 
