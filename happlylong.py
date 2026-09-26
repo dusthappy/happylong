@@ -1392,6 +1392,7 @@ def cmd_session_show(_args: argparse.Namespace) -> int:
     result["session_scope"] = {
         "source": source,
         "binding_file": session_file,
+        "fingerprint": Path(session_file).stem[:8],
     }
     if not data.get("active"):
         result["active"] = False

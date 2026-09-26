@@ -47,7 +47,7 @@ metadata:
 
 ```
 ① 触发识别     判断是否为执行型请求，并识别显式 /hy-req --title 新建信号
-② 身份与门禁   happlylong.py session show；未绑定则 Ask-First 绑定/新建并循环到成功或取消
+② 身份与门禁   happlylong.py session show（核对 fingerprint 未与其他并行会话串线，串线即换独立 ID）；未绑定则 Ask-First 绑定/新建并循环到成功或取消
 ③ 上下文收集   迭代 _index.yaml → 项目 profile.yaml → 需要的 shared/ 规范
 ④ 检查点       前置条件校验（如 hy-dev 要求 stages.prd=done）；不满足给明确指引而非猜
 ⑤ 执行与验证   按 Skill 状态机推进并回写 stages；完整性核对 → 输出汇报 + [Next Steps]

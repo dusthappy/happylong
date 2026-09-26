@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import hashlib
 import importlib.util
 import io
 import os
@@ -139,6 +140,32 @@ class TestSessionIsolation(unittest.TestCase):
             with self.assertRaises(hy.HyError, msg=repr(bad)):
                 hy.validate_session_id(bad)
         self.assertEqual(hy.validate_session_id("  agent:session-1  "), "agent:session-1")
+
+    def test_session_show_reports_binding_fingerprint(self):
+        original_root = hy.ROOT
+        original_bindings_dir = hy.SESSION_BINDINGS_DIR
+        original_override = hy.SESSION_ID_OVERRIDE
+        try:
+            with tempfile.TemporaryDirectory() as raw_root:
+                test_root = pathlib.Path(raw_root)
+                hy.ROOT = test_root
+                hy.SESSION_BINDINGS_DIR = test_root / ".hy" / "session" / "bindings"
+                hy.SESSION_ID_OVERRIDE = "main-line"
+                out = io.StringIO()
+                with contextlib.redirect_stdout(out), \
+                        mock.patch.object(hy, "resolve_language", return_value="zh"):
+                    rc = hy.cmd_session_show(argparse.Namespace())
+                self.assertEqual(rc, 0, out.getvalue())
+                data = hy.yaml.safe_load(out.getvalue())
+                expected = hashlib.sha256(
+                    hy.SESSION_HASH_NAMESPACE + b"main-line").hexdigest()[:8]
+                self.assertEqual(data["session_scope"]["fingerprint"], expected)
+                self.assertEqual(data["session_scope"]["source"], "--session-id")
+                self.assertFalse(data["active"])
+        finally:
+            hy.ROOT = original_root
+            hy.SESSION_BINDINGS_DIR = original_bindings_dir
+            hy.SESSION_ID_OVERRIDE = original_override
 
     def test_bindings_do_not_clobber_between_threads(self):
         original_root = hy.ROOT

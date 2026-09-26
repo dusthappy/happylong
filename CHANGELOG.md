@@ -20,6 +20,7 @@
 ### Changed
 
 - 2026-09-24：中英文一致性清理——CLI 文案表与 `ui()` 调用键双向核对归零（删 10 条失效翻译），`--role` 帮助与 pending 状态提示纳入 i18n 渲染；双语 Skill 源（标题层级/代码块结构）、模板占位符、AGENTS.md 章节与根安装产物扫描全部对齐
+- 2026-09-24：会话串线防护——`session show` 新增 `session_scope.fingerprint`（绑定文件哈希前 8 位）供并行会话核验身份；AGENTS.md/Skill 源明确「并行会话必须使用独立会话 ID，执行前先核对 fingerprint，串线即换 ID」；支持 SessionStart hook 的平台经 additionalContext 注入每会话唯一 `hy-<CLAUDE_SESSION_ID>` 身份（本机 .zcode/config.json 已配），修复多会话共用主会话 ID 导致绑定互相覆盖、全部走同一迭代的问题
 - 2026-09-09：中英文 README 补充独立/关联项目软链接入、迭代全过程留痕与多会话并行开发说明，并明确共享代码目录及项目配置的并发修改边界
 - 2026-09-09：中英文 README 快速上手改为“安装初始化→接入代码项目→AI 对话提需求”三步，说明 PyYAML 的用途、独立 Python 环境、命令执行位置与成功标志；会话及语言协议移至后续配置章节
 

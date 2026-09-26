@@ -47,7 +47,7 @@ metadata:
 
 ```
 ① Trigger            classify execution intent and detect the explicit /hy-req --title create-new signal
-② Identity + gate    happlylong.py session show; if unbound, run the Ask-First bind/create loop until success or cancellation
+② Identity + gate    happlylong.py session show (verify the fingerprint isn't cross-wired with another parallel session; switch IDs if it is); if unbound, run the Ask-First bind/create loop until success or cancellation
 ③ Context gathering  iteration _index.yaml → project profile.yaml → needed shared/ standards
 ④ Checkpoint         validate prerequisites (e.g. hy-dev requires stages.prd=done); guide clearly instead of guessing
 ⑤ Execute + validate advance the state machine and write back stages; completeness check → report + [Next Steps]
