@@ -1,6 +1,6 @@
 # happlylong 开源发布规范
 
-> **版本**: 1.9 | **日期**: 2026-09-09 | **适用**: 本仓库的一切公开行为（首次发布与后续维护）
+> **版本**: 1.10 | **日期**: 2026-11-06 | **适用**: 本仓库的一切公开行为（首次发布与后续维护）
 > 本规范回答一个问题：**如何让「本机工作台」与「公开仓库」长期安全地共存于同一目录**。
 
 ---
@@ -12,7 +12,7 @@ happlylong 不设独立的发布分支或发布目录，本目录同时是本机
 | 层 | 内容 | 入库策略 |
 |----|------|----------|
 | **发布层** | `happlylong.py|.bat`、`.hy/config.yaml`、`.hy/i18n/{zh,en}/`（skills + AGENTS.md + **templates**）、`shared/`、`examples/`、`tests/`、`requirements.txt`、`.gitignore`、`.gitattributes`、根目录社区文件、`.github/`（Issue/PR 模板、CI、Dependabot） | **tracked**，正常提交 |
-| **本机层** | `.hy/session/`（`bindings/{hash}.yaml` 每会话迭代绑定、仅供人工迁移的旧 `current.yaml`、语言偏好 `prefs.yaml`）、`.hy/snapshots/`、`.hy/private-names.yaml`、`AGENTS.md`、`CLAUDE.md`、`.agents/`（**均为 `init`/`lang` 生成的安装产物**）、`.claude/`（用户自建技能软链）、`workspace/`（**整目录**） | **ignored**，仅本机存在；绑定文件只存会话 ID 摘要，运行时绝不自动读取共享 `current.yaml` |
+| **本机层** | `.hy/session/`（`bindings/{hash}.yaml` 每会话迭代绑定、仅供人工迁移的旧 `current.yaml`、语言偏好 `prefs.yaml`）、`.hy/snapshots/`、`.hy/private-names.yaml`、`AGENTS.md`、`CLAUDE.md`、`.agents/`（**均为 `init`/`lang` 生成的安装产物**）、`.claude/`（用户自建技能软链）、`.zcode/`、`.zcodeignore`（ZCode 自动生成的本机配置）、`workspace/`（**整目录**） | **ignored**，仅本机存在；绑定文件只存会话 ID 摘要，运行时绝不自动读取共享 `current.yaml` |
 | **外部层** | `code_lib/` 软链指向的真实代码库 | **永不入库**，目标路径只以登记字段存在于本机 `profile.yaml` |
 
 **P0**：任何新增顶层文件/目录必须先在本规范登记归属层，再决定是否加入 `.gitignore`。禁止「先提交后补查」。
@@ -118,6 +118,7 @@ GitHub 仓库设置基线：Description 一句话定位；Topics 建议 `ai-agen
 ---
 
 *修订历史*
+- 1.10（2026-11-06）：将 ZCode 的 `.zcode/` 与自动生成的 `.zcodeignore` 明确归入本机层；通过 Git 忽略规则排除本机配置，发布扫描不增加豁免。
 - 1.9（2026-09-09）：发布清单按 Git NUL 分隔解析；补齐实际入库资源、运行时依赖、有效工作流步骤与 UTF-8 文本检查；明确启发式扫描/远端 CI 的证据边界与本机操作快照恢复约束。
 - 1.8（2026-09-04）：补齐 GitHub 发布准备：会话 active/previous 绑定强制归属唯一 `workspace/{project}`，`session show` 改为单一 YAML 契约；`release-check` 修正无 Git 枚举与私有名称映射解析，增加软链、双语清单/README/版本/Skill 收尾/社区模板、Dependabot、Action SHA 与本地链接检查；社区文件扩为完整双语。
 - 1.7（2026-09-04）：开源首发版本定为 v0.1.1（0.x 起步，独立于本文档修订号）；第五节首发示例命令按此同步。

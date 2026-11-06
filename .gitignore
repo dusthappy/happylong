@@ -29,6 +29,8 @@ venv/
 
 # ZCode 本机会话产物（计划文件等）
 .zcode/
+# ZCode 自动生成的本机索引排除配置
+/.zcodeignore
 
 # 工具/文档改写快照（.bak 与恢复留痕）
 .hy/snapshots/

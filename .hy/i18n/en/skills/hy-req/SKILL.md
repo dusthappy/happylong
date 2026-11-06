@@ -64,6 +64,7 @@ The current agent session is bound automatically, and its state is written atomi
 
 ### ③ Requirement clarification (lightweight)
 
+- When the user identifies Feishu sources or requests their images locally, read `shared/feishu-cli.md` from the framework root on demand. Handle only authorized resources, choose the matching CLI downloader, verify missing images on an authorized page, and save verified images to the bound iteration's `attach/` with relative references. Do not import another project's account configuration, business data or task workflow.
 - If the information is complete, write directly; for gaps use `/hy-roles` PM's four pillars (completeness/consistency/clarity/feasibility) — **ask only what's missing**, packaged into one round (Ask-First).
 - Fold the title confirmation for modes B and C into the same clarification round to avoid unnecessary back-and-forth.
 - Session images/attachments (prototypes, screenshots, external contract fragments) → store in `attach/` and register in the PRD.
@@ -126,6 +127,12 @@ Complete the template without changing its structure: revision history / backgro
 - Never interpret explicit `--title` as “continue existing.” On a same-day slug collision, preserve create-new semantics by choosing a new slug or cancelling.
 - Before the unbound-session gate completes, create no directory and write no iteration artifacts. After the user selects an existing iteration, verify the binding before resuming the original request.
 - Iteration creation (②) is a pure scripted step; PRD content generation (③-⑥) is the LLM step — never reversed (directory first, content second).
+
+## Revision history
+
+| Date | Change |
+|------|--------|
+| 2026-11-06 | Add on-demand Feishu CLI/image guidance using existing iteration attachments and keeping account/business data separate. |
 
 ## [Next Steps]
 

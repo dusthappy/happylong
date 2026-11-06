@@ -142,6 +142,8 @@ Context compaction does not alter the on-disk binding. As long as the ID remains
 
 `shared/` ships with the framework and holds cross-project standards (general coding/Git, TypeScript/Go/Rust language standards, security rules, testing standards), pointed to by `.hy/config.yaml → paths.shared_rules` and verified by `doctor`.
 
+For user-specified Feishu requirements, follow the [CLI and local-image guide](shared/feishu-cli.md) to read content and download and verify images in the current iteration's attachments. This optional integration supplies methods only, without account configuration or business data.
+
 ## workspace: your business-project area (local only, never committed)
 
 `workspace/` is your personal business area. **The entire directory is excluded by `.gitignore` and never enters the public repo** — the project registry and each project's profile/knowledge/iterations live only on your machine; the fictional sample is at [examples/example/](examples/example/).
@@ -196,6 +198,12 @@ workspace/            Business-project area (local only, whole dir never committ
 ## Contributing
 
 Issues and PRs are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first: contributions target the framework layer (tool / skills / templates / shared standards / docs / examples); content from real business projects is not accepted. Please follow the [Code of Conduct](CODE_OF_CONDUCT.md); report security vulnerabilities via the private advisory process in [SECURITY.md](SECURITY.md) (no public issues). See [CHANGELOG.md](CHANGELOG.md) for version history (current release: 0.1.2).
+
+## Document revision history
+
+| Date | Change |
+|------|--------|
+| 2026-11-06 | Link optional Feishu CLI/local-image guidance through existing iteration attachments and skills. |
 
 ## License
 

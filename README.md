@@ -142,6 +142,8 @@ PowerShell 等价写法为 `$env:HY_SESSION_ID = "claude:project-a:conversation-
 
 `shared/` 是框架随附的跨项目通用规范（通用编码/Git、TypeScript/Go/Rust 语言规范、安全红线、测试标准），由 `.hy/config.yaml → paths.shared_rules` 指向，`doctor` 会校验其完整性。
 
+用户指定飞书需求资料时，可按[飞书 CLI 与图片本地化指南](shared/feishu-cli.md)读取正文、下载并校验图片，保存到当前迭代附件。仅提供通用方法，不附带账号配置或业务数据；飞书接入为可选能力。
+
 ## workspace：业务项目位（本机私有，永不入库）
 
 `workspace/` 是你的个人业务区，**整个目录被 `.gitignore` 排除，不进入公开仓库**——项目注册表与各项目的 profile/知识库/迭代产物只存在于本机；虚构教学示例在根目录 [examples/example/](examples/example/)。
@@ -197,6 +199,13 @@ workspace/            业务项目位（本机私有，整目录不入库）：_
 
 欢迎 Issue 与 PR。贡献前请读 [CONTRIBUTING.md](CONTRIBUTING.md)：贡献范围限于框架层（工具/Skill/模板/通用规范/文档/示例），不接受任何真实业务项目内容；参与社区请遵循[行为准则](CODE_OF_CONDUCT.md)，安全漏洞请走 [SECURITY.md](SECURITY.md) 的私密通告流程（勿开公开 Issue）。版本历史见 [CHANGELOG.md](CHANGELOG.md)（当前版本 0.1.2）。
 
+## 文档修订历史
+
+| 日期 | 变更 |
+|------|------|
+| 2026-11-06 | 增加可选飞书 CLI 与图片本地化指南入口，沿用迭代附件和现有技能链路。 |
+
 ## 许可证
+
 
 [MIT](LICENSE) © The happlylong Authors
