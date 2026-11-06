@@ -5,7 +5,7 @@ alwaysApply: true
 
 # happlylong Agent Behavior Spec
 
-> **Version**: 0.1.2 | **Updated**: 2026-09-24
+> **Version**: 0.1.2 | **Updated**: 2026-10-16
 > happlylong (**hy** for short) is a product-dev workbench serving multiple personal projects under `workspace/`.
 > Design tenets: **single lightweight track, zero platform mirroring, the CLI is the source of truth**.
 
@@ -15,7 +15,7 @@ alwaysApply: true
 
 ```
 happlylong/                     ← framework root (directory containing this file)
-├── happlylong.py / .bat        ← the only tool: skeleton / symlinks / iterations / session / doctor / language
+├── happlylong.py / .bat        ← the only tool: skeleton / symlinks / prototype / iterations / session / doctor / language
 ├── CLAUDE.md                   ← Claude Code entry (@AGENTS.md reference, install artifact)
 ├── .agents/skills/hy-*/        ← installed skills (active language set, install artifact)
 ├── .hy/                        ← config, session, templates, language sources
@@ -32,6 +32,7 @@ happlylong/                     ← framework root (directory containing this fi
         ├── profile.yaml        ← repo registry (role/shared/backend_apps/desc/langs/pending)
         ├── code_lib/{repo} →   ← symlinks to real codebases (where changes land)
         ├── knowledge/{repo}/   ← knowledge base (overview/api/data/changelog, maintained by /hy-knowledge)
+        ├── prototype/          ← cross-iteration product prototype (entry/metadata/sources/verification; not business delivery)
         └── iterations/{id}/    ← iteration artifacts (prd/contract/plan/smoke/implementation/attach)
 ```
 
@@ -46,7 +47,7 @@ happlylong/                     ← framework root (directory containing this fi
 | Meta-spec | `/hy-spec` | P0/P1 constraints + execution lifecycle + output quality (a must-know for every session) |
 | Navigation | `/hy-guide` | framework map and pipeline navigation |
 | Role chain | `/hy-roles` | PM/architect/developer personas combined (clarify/gate/protect), review only, no writes |
-| Project/symlinks | `/hy-project` | new project registration, three symlink modes, pending linking |
+| Project/symlinks/prototypes | `/hy-project` | new project registration, three symlink modes, prototype directories, pending linking |
 | Iteration+PRD | `/hy-req --project X --title T` | explicit `--title` always creates and binds; without it, continue/revise by session state, or prompt to bind existing/create new when unbound |
 | Dev | `/hy-dev` | four-stage state machine (contract fallback → plan → implement → self-check) + automatic multi-repo chaining |
 | Fix | `/hy-fix` | systematic defect fixing (fix-*.md trail) |
@@ -56,7 +57,7 @@ happlylong/                     ← framework root (directory containing this fi
 
 **Cross-agent session isolation**: each agent session binds to exactly one iteration, and that binding must explicitly belong to exactly one `workspace/{project}`. Both active and previous records require `project`, `iteration_id`, and `iteration_path`; the path must be exactly `workspace/{project}/iterations/{iteration_id}`. The tool validates this invariant at both read and write boundaries and fails closed, so a workspace must never be inferred from a bare iteration ID, recency, or cwd. Identity precedence is a leading `--session-id` → `HY_SESSION_ID` → `CODEX_THREAD_ID` (the Codex adapter). Every entry point maps the same raw ID to the same namespaced SHA-256 digest; the raw ID is never persisted. Other agents must inject a stable, unique `HY_SESSION_ID` into the session launch environment and keep it unchanged across context compaction and process resumption. For a cross-agent handoff of one logical session, both sides use the same ID but only one writer may be active at a time; genuinely concurrent sessions require different IDs. Before running hy commands, run `session show` and check `session_scope.fingerprint`: if it matches another parallel session, the line is cross-wired — switch to a distinct ID immediately; any named shared ID (e.g. a mainline ID) belongs to exactly one session at a time and must never be reused by a second session. Platforms with SessionStart hooks (e.g. ZCode) should configure a workspace hook that injects `${CLAUDE_SESSION_ID}` via additionalContext as a per-session-unique `--session-id hy-<CLAUDE_SESSION_ID>`, preventing shared-ID cross-wiring at the supply side. Without a trustworthy ID, binding-dependent commands must fail closed; reading or writing the shared `.hy/session/current.yaml` is forbidden.
 
-**Unbound-session entry gate (execution requests)**: on the first `/hy-*` or natural-language request that would advance requirements, development, fixing, rechecking, smoke testing, or iteration distillation, first run `python3 happlylong.py session show`. Pure Q&A, `/hy-spec`, `/hy-guide`, `/hy-roles`, project/symlink onboarding, framework diagnostics, framework-source maintenance and open-source/release preparation, and `/hy-knowledge bootstrap` do not require a business-iteration binding. When a stable identity exists but the structured result says `active: false` with `entry_gate.policy: ask_first_bind_or_create`:
+**Unbound-session entry gate (execution requests)**: on the first `/hy-*` or natural-language request that would advance requirements, development, fixing, rechecking, smoke testing, or iteration distillation, first run `python3 happlylong.py session show`. Pure Q&A, `/hy-spec`, `/hy-guide`, `/hy-roles`, project/symlink onboarding, prototype scaffold initialization/inspection, framework diagnostics, framework-source maintenance and open-source/release preparation, and `/hy-knowledge bootstrap` do not require a business-iteration binding. When a stable identity exists but the structured result says `active: false` with `entry_gate.policy: ask_first_bind_or_create`:
 
 1. **The sole exception is `/hy-req` with an explicit `--title`**: it is an unambiguous “new PRD” signal. Do not ask whether to bind or create; resolve or confirm `project`, then create and bind a new iteration immediately. Even when another iteration is already bound, open a new one and move the old binding to `previous`.
 2. For every other execution request, run `iter list` to show candidates, then Ask-First whether to **bind an existing iteration** or **create a new iteration**. Prefer the host's structured question/choice UI when available; otherwise ask an equivalent explicit question. A recommendation may follow from the original intent, but never select it for the user.
@@ -64,6 +65,10 @@ happlylong/                     ← framework root (directory containing this fi
 4. If the selected project/iteration is invalid or information remains incomplete, keep the gate closed, create no iteration artifacts, make no `code_lib/` changes, show valid candidates again, and repeat Ask-First. Stop when the user explicitly cancels.
 
 **Iteration resolution order**: explicit `--project + --iteration-id` > the current session binding. When passed alone, `--project` must match the project already bound to the current session; no project-level shared pointer is used to guess across sessions.
+
+**Project-level product prototype**: `workspace/{project}/prototype/` sits alongside `iterations/` and holds page and interaction demonstrations across iterations. `project new` scaffolds it automatically; existing projects use `prototype init {project}` to add missing files and `prototype show {project}` to validate and display metadata. `_index.yaml` records the entry, `planned/draft/ready` status, and same-project `source_iterations`; README records the source roadmap/PRD/coverage, version scope, mocked services, and verification evidence. A prototype never replaces requirements or contracts, changes session bindings, advances iteration `prd/dev/smoke`, or passes business ACs; `ready` means reviewable only. Iteration-specific screenshots/review snapshots stay in that iteration's `attach/`, linking to the project prototype rather than creating another copy.
+
+**Direct prototype preview**: `prototype preview {project}` returns the local entry; `prototype preview {project} --open` opens its file URI in the system default browser. Neither starts a server. `show` includes `preview_mode: file` and `entry_uri`; schema 1 manifests without `preview_mode` default to `file`, and entries must use `.html`/`.htm`. Prototypes must open directly as local HTML in a browser (`file://`), using relative CSS, classic scripts, media paths, or inline assets. Do not require users to run Node/npm, a server, or a build first. Keep demo data in local classic scripts or HTML; do not depend on fetching local JSON, ES modules, a CDN, or service workers. If the browser restricts storage on file pages, visibly fall back to current-page state and offer export; never automatically migrate data from the old HTTP origin. Before marking a prototype `ready`, open it through `file://` and verify key interactions, assets, and storage fallback. Static metadata checks do not replace runtime verification.
 
 **Command language**: skill sources live in `.hy/i18n/{zh,en}/skills/`; `.agents/skills/` and this file are install artifacts, switched via `python3 happlylong.py lang zh|en` (the first `init` detects the system locale once and pins it). To change instructions, edit the matching language source and re-run the switch command.
 
@@ -75,7 +80,7 @@ happlylong/                     ← framework root (directory containing this fi
 - **No PRD, no code changes**: while `stages.prd ≠ done`, changing anything under `code_lib/` is forbidden (P0; even a hotfix requires completing a PRD first or explicit permission).
 - **Snapshot before deleting data**: any data/file deletion must first record the pre-deletion state.
 - **No automatic git commits**: without an explicit user request, never run `git add/commit/push`; leave working-tree changes for user review.
-- **Single artifact path**: iteration artifacts go only to `workspace/{project}/iterations/{id}/`; framework files only to `.agents/` and `.hy/`; no scattering outside the framework.
+- **Single artifact path**: iteration artifacts go only to `workspace/{project}/iterations/{id}/`; cross-iteration product prototypes, their documentation, assets, and verification evidence go only to `workspace/{project}/prototype/`. Prototypes reference source iterations without replacing their PRDs, contracts, or acceptance records. Framework instruction sources and templates stay in `.hy/`, installed artifacts in root `AGENTS.md`/`CLAUDE.md` and `.agents/`; framework tools, tests, shared standards, and documentation retain their established paths. Do not scatter artifacts outside the framework.
 - **Never guess session identity**: binding-dependent operations must stop when no trustworthy session ID is available. Never infer it from the cwd, process ID, terminal, latest iteration, or a shared `current.yaml`.
 - **Every binding names its workspace**: active and previous bindings must carry a valid `project`, and their path must exactly match `workspace/{project}/iterations/{iteration_id}`. Missing fields or a mismatched path stop execution.
 - **No execution while unbound**: except for the explicit new-iteration signal `/hy-req --title`, execution requests must pass the Ask-First “bind existing / create new” gate. Do not write iteration artifacts or business code before the user chooses.
@@ -108,6 +113,13 @@ A (meets all dimensions) | B (P0 met, minor flaws) | C (minimum deliverable) →
 ## 7. Violation handling
 
 P0 → stop immediately + explanation + fix suggestion; P1 → warn and fix; P2 (suggestions) → note and continue.
+
+## 8. Revision history
+
+| Date | Change |
+|------|--------|
+| 2026-10-16 | Require directly openable local HTML, add preview commands, and specify file-page verification and storage fallback. |
+| 2026-10-15 | Add project-level prototype paths, traceability, mock disclosure, and stage isolation. |
 
 ---
 

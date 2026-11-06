@@ -57,7 +57,7 @@ workspace/{project}/iterations/{YYMMDD}-{type}-{slug}/
 ├── _index.yaml      ← three-stage state machine (stages: prd/dev/smoke) + contract field
 ├── prd.md  contract.md  plan.md  smoke.md
 ├── implementation/  (fix-*.md, review.md)
-└── attach/          (prototypes, external contracts, other attachments)
+└── attach/          (iteration screenshots, external design/contract references, review snapshots)
 ```
 
 The current agent session is bound automatically, and its state is written atomically to `.hy/session/bindings/{hash}.yaml`. Without a trustworthy session ID, the tool fails closed before creating the iteration directory, leaves no partial artifacts, and never falls back to `current.yaml`.
@@ -67,7 +67,7 @@ The current agent session is bound automatically, and its state is written atomi
 - When the user identifies Feishu sources or requests their images locally, read `shared/feishu-cli.md` from the framework root on demand. Handle only authorized resources, choose the matching CLI downloader, verify missing images on an authorized page, and save verified images to the bound iteration's `attach/` with relative references. Do not import another project's account configuration, business data or task workflow.
 - If the information is complete, write directly; for gaps use `/hy-roles` PM's four pillars (completeness/consistency/clarity/feasibility) — **ask only what's missing**, packaged into one round (Ask-First).
 - Fold the title confirmation for modes B and C into the same clarification round to avoid unnecessary back-and-forth.
-- Session images/attachments (prototypes, screenshots, external contract fragments) → store in `attach/` and register in the PRD.
+- Session images/attachments (iteration-specific mockups, screenshots, external contract fragments) → store in `attach/` and register in the PRD. Cross-iteration product prototypes must open by double-clicking local HTML without running a server. Keep them in `workspace/{project}/prototype/`; link the PRD to the entry or relevant page. The prototype README and `source_iterations` link back to sources and disclose versions and mocked capabilities. Close requirements discovered during prototyping in the PRD/contract/coverage instead of changing the prototype alone.
 
 ### ④ Determine repository scope → repos_in_scope
 
@@ -107,7 +107,7 @@ Complete the template without changing its structure: revision history / backgro
 □ Every AC verifiable, numbered, free of vague words ("as much as possible"/"faster")
 □ repos_in_scope matches the PRD content and is written back to _index
 □ Contract branch conclusion matches _index → contract
-□ Prototypes/attachments stored in attach/ and registered
+□ Iteration attachments stored in attach/ and registered; project prototypes in prototype/ with source links in both directions; demos do not pass business ACs
 □ No placeholder residue; revision history updated
 ```
 
@@ -133,6 +133,8 @@ Complete the template without changing its structure: revision history / backgro
 | Date | Change |
 |------|--------|
 | 2026-11-06 | Add on-demand Feishu CLI/image guidance using existing iteration attachments and keeping account/business data separate. |
+| 2026-10-16 | Require requirement-linked product prototypes to open directly as local HTML. |
+| 2026-10-15 | Add project-level prototype paths, source traceability, and business-delivery boundaries. |
 
 ## [Next Steps]
 

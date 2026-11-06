@@ -20,6 +20,7 @@ happlylong（缩写 **hy**）把「带 PRD 门槛的产研流程」做成一套 
 
 - **多个项目，统一管理**：既支持彼此独立的项目，也支持共享后端或公共代码库的关联项目。通过软链将代码库接入 `workspace/{project}/code_lib/`，无需搬动代码或改变原仓库结构；
 - **按迭代推进，全过程可追溯**：每次需求作为独立迭代，持续记录需求文档（PRD）、接口契约、开发计划与实现记录、测试结果，统一保存在 `workspace/{project}/iterations/{id}/`，方便回顾、接续和复检；
+- **跨迭代产品原型**：在项目 `prototype/` 中集中演示完整产品流程，引用来源需求与版本规划，原型验证与业务交付分开记录；
 - **不同会话，并行开发**：每个 AI 会话明确绑定一个项目的一次迭代，不同会话可分别推进不同项目或同一项目的不同迭代，绑定信息和迭代产物各自归属明确。未绑定的新会话会先询问绑定已有迭代还是创建新迭代；
 - **无 PRD 禁改码**：所有业务仓库改动必须先过 `/hy-req` 闭合 PRD 与验收标准（AC），AI 代理才能动代码；
 - **多仓自动串联**：前后端分离、共享后端多项目挂载，`/hy-dev` 按角色自动排序与路由。
@@ -32,7 +33,7 @@ happlylong（缩写 **hy**）把「带 PRD 门槛的产研流程」做成一套 
 |------|------|
 | **单轨轻链路** | 一条链路 `req → dev → test`，req 阶段即闭合 PRD 与契约；不设多框架多档位 |
 | **零平台镜像** | 只维护 `AGENTS.md`（跨平台开放标准）与 `.hy/i18n/` 双语语言源（`.agents/skills/` 为安装产物），不做 .cursor/.claude 等镜像目录与同步机制 |
-| **工具即真相** | 一个单文件 CLI `happlylong.py` 管骨架/软链/迭代/会话/体检/语言，状态全部落 YAML，无隐藏数据库 |
+| **工具即真相** | 一个单文件 CLI `happlylong.py` 管骨架/软链/原型/迭代/会话/体检/语言，状态全部落 YAML，无隐藏数据库 |
 | **三阶段状态机** | 迭代只有 `prd → dev → smoke` 三个阶段 + 契约闭合字段，产物平铺四个单文件 |
 
 ## 快速上手
@@ -121,7 +122,7 @@ PowerShell 等价写法为 `$env:HY_SESSION_ID = "claude:project-a:conversation-
 
 上下文压缩不会改变落盘绑定；只要该 ID 在压缩、进程续跑或 Agent 交接后保持不变，就会稳定解析到同一迭代。跨 Agent 交接同一逻辑会话时，双方显式使用同一个 `HY_SESSION_ID`，且同一时刻只保留一个写入者；真正并行的会话必须使用不同 ID。若没有可信 ID，绑定相关命令会 **fail closed** 并拒绝执行，不再回退共享的 `current.yaml`，从而避免静默串线。
 
-**未绑定会话入口门禁**：新会话第一次收到会推进需求、开发、修复、复检、冒烟或 iteration 沉淀的 `/hy-*` 或自然语言请求时，先检查绑定。`session show` 的整个 stdout 是单份 YAML 文档；未绑定时以 `active: false` + `entry_gate` 返回机器可判定的门禁契约，并声明 workspace 根与必填绑定字段。代理据此列出有效迭代并循环 Ask-First，让你选择“绑定已有迭代”或“创建新迭代”。输入无效时不会落产物或改代码，而是重新询问；绑定/创建成功后会恢复最初请求。唯一例外是显式 `/hy-req --title`：它明确表示新 PRD，只补齐项目后直接创建。纯问答、框架导航/规范/职责评审、项目或软链接入、诊断、框架源码维护与开源/发版准备，以及 `/hy-knowledge bootstrap` 不受业务迭代门禁影响。
+**未绑定会话入口门禁**：新会话第一次收到会推进需求、开发、修复、复检、冒烟或 iteration 沉淀的 `/hy-*` 或自然语言请求时，先检查绑定。`session show` 的整个 stdout 是单份 YAML 文档；未绑定时以 `active: false` + `entry_gate` 返回机器可判定的门禁契约，并声明 workspace 根与必填绑定字段。代理据此列出有效迭代并循环 Ask-First，让你选择“绑定已有迭代”或“创建新迭代”。输入无效时不会落产物或改代码，而是重新询问；绑定/创建成功后会恢复最初请求。唯一例外是显式 `/hy-req --title`：它明确表示新 PRD，只补齐项目后直接创建。纯问答、框架导航/规范/职责评审、项目或软链接入、原型目录初始化/查看、诊断、框架源码维护与开源/发版准备，以及 `/hy-knowledge bootstrap` 不受业务迭代门禁影响。
 
 ## Skill 一览（全部 hy- 前缀）
 
@@ -136,7 +137,7 @@ PowerShell 等价写法为 `$env:HY_SESSION_ID = "claude:project-a:conversation-
 | `/hy-review` | 独立复检/Code Review（review.md 结论） |
 | `/hy-test` | 冒烟执行（AC↔结果↔证据四列表，fail 回流 /hy-fix） |
 | `/hy-knowledge` | 知识库 bootstrap 冷启动 + 迭代变动沉淀 |
-| `/hy-project` | 项目登记、软链三模式、pending 补链、doctor 体检 |
+| `/hy-project` | 项目登记、软链三模式、原型目录、pending 补链、doctor 体检 |
 
 ## shared：跨项目通用规范
 
@@ -146,7 +147,7 @@ PowerShell 等价写法为 `$env:HY_SESSION_ID = "claude:project-a:conversation-
 
 ## workspace：业务项目位（本机私有，永不入库）
 
-`workspace/` 是你的个人业务区，**整个目录被 `.gitignore` 排除，不进入公开仓库**——项目注册表与各项目的 profile/知识库/迭代产物只存在于本机；虚构教学示例在根目录 [examples/example/](examples/example/)。
+`workspace/` 是你的个人业务区，**整个目录被 `.gitignore` 排除，不进入公开仓库**——项目注册表与各项目的 profile/知识库/产品原型/迭代产物只存在于本机；虚构教学示例在根目录 [examples/example/](examples/example/)。
 
 首次使用先登记一个项目（真实项目目录在本机，与公开仓库隔离）：
 
@@ -168,6 +169,25 @@ python3 happlylong.py link apply myapp          # 目录就绪后一键补链
 
 完整说明见 `/hy-project` Skill 与 [examples/example/](examples/example/) 示例。
 
+## 产品原型：跨迭代的交互演示
+
+项目级产品原型放在 `workspace/{project}/prototype/`，与 `iterations/` 平级。`project new` 自动建立 `_index.yaml` 与 `README.md` 骨架；已有项目可显式补齐：
+
+```bash
+python3 happlylong.py prototype init myapp
+python3 happlylong.py prototype show myapp
+python3 happlylong.py prototype preview myapp
+python3 happlylong.py prototype preview myapp --open
+```
+
+`init` 只补建缺失骨架，不覆盖已有内容或生成占位业务页面；`show` 校验并展示原型元数据与 `entry_uri`。入口创建后，可直接双击 HTML，也可用 `preview` 获取本地文件入口、用 `preview --open` 在系统默认浏览器打开文件 URI；这些操作不启动服务。存量项目完全没有 `prototype/` 时，`doctor` 仅提醒，不计入问题，也不写文件；可自行执行 `prototype init` 或 `doctor --fix` 补建。已有 `prototype/` 但缺少清单或 README 时计入问题，`doctor --fix` 可补建缺件；非法的既有元数据仍报错且不覆盖。这些操作不创建、切换会话绑定，也不改变迭代阶段。
+
+`prototype/_index.yaml` 使用 `schema: 1`，记录 `project`、`title`、相对入口 `entry`、`preview_mode: file`、`status`、`source_iterations`、`created`、`updated`。schema 1 旧清单省略 `preview_mode` 时按 `file` 处理。入口限 `.html`/`.htm`。状态为 `planned`、`draft`、`ready`：计划阶段允许入口尚未创建；后两者必须有实际入口文件。`ready` 仅表示原型可供评审。来源迭代必须真实存在于同一项目，入口不得越出原型目录；目录或元数据软链会被拒绝。
+
+原型的 README 记录双击 HTML 的打开方式、来源路线图/PRD/需求覆盖表、各页面对应版本、模拟服务和验证证据。跨迭代原型只维护在这里；单迭代的截图、外部设计稿或评审快照仍放该迭代的 `attach/`，通过相对链接引用原型，不复制一套。原型清楚区分演示、计划与暂缓能力，不能把模拟登录、模型、支付或语音当成已实现功能，也不能据此勾选业务 AC 或把 `prd/dev/smoke` 标为完成。业务需求和契约仍以来源迭代为准，原型暴露的新需求回到 `/hy-req`。
+
+原型必须可在浏览器直接打开本地 HTML（`file://`），使用相对 CSS、经典脚本、媒体路径或内联资源；不得要求用户先运行 Node/npm、服务或构建。演示数据放在本地经典脚本或 HTML 内，不依赖本地 JSON 的 `fetch`、ES module、CDN 或 service worker。浏览器若限制文件页存储，需显示仅当前页有效的状态并提供导出，不能自动迁移旧 HTTP 来源的数据。标为 `ready` 前须实际以 `file://` 打开并验证关键交互、资源和存储退化，静态元数据检查不能替代运行验证。
+
 ## 目录速查
 
 ```
@@ -180,7 +200,7 @@ AGENTS.md / CLAUDE.md  代理规范与 Claude Code 接入口（init/lang 生成�
 shared/               跨项目通用规范（编码/安全/测试/Git + TS/Go/Rust）
 examples/example/     脱敏示例项目
 .github/              Issue/PR 模板、CI 与 Dependabot 配置
-workspace/            业务项目位（本机私有，整目录不入库）：_index.yaml + {project}/（profile + code_lib/ 软链 + knowledge/ + iterations/）
+workspace/            业务项目位（本机私有，整目录不入库）：_index.yaml + {project}/（profile + code_lib/ 软链 + knowledge/ + prototype/ + iterations/）
 ```
 
 ## FAQ
@@ -204,8 +224,9 @@ workspace/            业务项目位（本机私有，整目录不入库）：_
 | 日期 | 变更 |
 |------|------|
 | 2026-11-06 | 增加可选飞书 CLI 与图片本地化指南入口，沿用迭代附件和现有技能链路。 |
+| 2026-10-16 | 原型改为直接打开的本地 HTML；增加 preview 命令、兼容元数据和文件页验证规则。 |
+| 2026-10-15 | 增加项目级产品原型目录、CLI 用法、来源追踪、交付边界及存量项目兼容规则。 |
 
 ## 许可证
-
 
 [MIT](LICENSE) © The happlylong Authors

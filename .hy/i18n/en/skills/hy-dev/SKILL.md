@@ -27,6 +27,8 @@ metadata:
 - Load `workspace/{project}/profile.yaml`: confirm each repo's role and desc (functional role), plus shared-repo `backend_apps`; load the `shared/` standards matching the languages involved.
 - If an involved repo already has `knowledge/{repo}/overview.md` (with api/data) → load it as repo-understanding context (conventions and existing interfaces/tables follow knowledge + code; if knowledge is stale, suggest a refresh in passing).
 
+- When a project has `prototype/`, read its README, source iterations, and applicable pages as interaction references; the current iteration PRD/contract controls scope, fields, and behavior. Mock data and services do not count as production implementation, and prototype checks cannot replace real API, permission, and persistence acceptance. Prototype-only work does not enter this development state machine or change business `prd/dev/smoke`; deliver directly openable local HTML with no server or build prerequisite for preview.
+
 ## State machine (per repo, first unfinished stage wins)
 
 ```
@@ -102,6 +104,13 @@ One checkpoint at a time, each with "question + options + recommendation".
 - [ ] Each repo's review.md has a verdict with no unhandled blocks
 - [ ] Verification commands actually executed, evidence recorded
 - [ ] All checkpoints have user confirmations; with no checkpoints it ran fully automatically
+
+## Revision history
+
+| Date | Change |
+|------|--------|
+| 2026-10-16 | Separate local HTML prototype preview from the business development runtime. |
+| 2026-10-15 | Add project-level prototype paths, source traceability, and business-delivery boundaries. |
 
 ## [Next Steps]
 

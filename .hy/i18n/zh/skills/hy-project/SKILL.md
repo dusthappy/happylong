@@ -1,6 +1,6 @@
 ---
 name: hy-project
-description: "workspace 项目与代码库软链管理：project new / link add 三模式（单仓、FE+BE 双仓、共享后端+子项目）/ pending 补链 / doctor 体检。新项目接入或软链异常时触发 /hy-project。"
+description: "workspace 项目与代码库软链管理：project new / link add 三模式（单仓、FE+BE 双仓、共享后端+子项目）/ prototype 原型目录 / pending 补链 / doctor 体检。新项目接入、原型目录管理或软链异常时触发 /hy-project。"
 metadata:
   hy:
     command: hy-project
@@ -85,6 +85,24 @@ python3 happlylong.py link add demo demo_new /abs/demo_new --role frontend --lan
 python3 happlylong.py link apply demo
 ```
 
+## 项目级产品原型
+
+`project new` 自动建立 `prototype/_index.yaml` 和 `prototype/README.md`，与 `iterations/` 平级；存量项目用工具补齐：
+
+```bash
+python3 happlylong.py prototype init demo
+python3 happlylong.py prototype show demo
+python3 happlylong.py prototype preview demo
+python3 happlylong.py prototype preview demo --open
+```
+
+- `init` 只补建缺失骨架，不覆盖内容或生成占位业务页面；`show` 校验并展示元数据和 `entry_uri`。`preview` 要求入口已存在，返回本地文件入口；加 `--open` 才通过系统默认浏览器打开文件 URI。预览不启动服务，这些命令均不改变迭代绑定或业务阶段。
+- `_index.yaml` 字段为 `schema: 1`、`project`、`title`、`entry`、`preview_mode: file`、`status`、`source_iterations`、`created`、`updated`。schema 1 旧清单缺少 `preview_mode` 时按 `file` 处理；入口必须为原型目录内相对 `.html`/`.htm` 文件，来源迭代必须存在于同一项目。
+- `status` 为 `planned/draft/ready`；`planned` 允许入口尚未创建，`draft/ready` 要求入口存在。`ready` 仅表示原型可评审。
+- README 登记来源路线图、PRD、需求覆盖表及页面版本，说明模拟服务、双击 HTML 的打开方式和验证证据。跨迭代原型仅在此维护；单迭代附件仍在 `attach/`，通过链接引用原型。
+- 原型必须可在浏览器直接打开本地 HTML（`file://`），使用相对 CSS、经典脚本、媒体路径或内联资源；不得要求用户先运行 Node/npm、服务或构建。演示数据放在本地经典脚本或 HTML 内，不依赖本地 JSON 的 `fetch`、ES module、CDN 或 service worker。浏览器若限制文件页存储，需显示仅当前页有效的状态并提供导出，不能自动迁移旧 HTTP 来源的数据。标为 `ready` 前须实际以 `file://` 打开并验证关键交互、资源和存储退化，静态元数据检查不能替代运行验证。
+- 原型不能替代 PRD/契约、勾选业务 AC，或将业务 `prd/dev/smoke` 标为完成。真实业务实现仍通过 `/hy-dev` 落在声明的 `code_lib/` 仓库。
+
 ## 巡检
 
 ```bash
@@ -96,6 +114,8 @@ python3 happlylong.py doctor --fix          # 全量体检 + 自动修复 _index
 - `broken`：target 被移动/删除 → 确认新路径后先 `link rm`，再重新 `link add`（无需 `--force`）。
 - `no-link`：登记存在但软链丢失 → `link apply {project}` 会跳过非 pending 项，此时直接重跑 `link add ... --force`。
 - `_index 与 profile 不一致` → `doctor --fix` 自动同步。
+- 存量项目完全没有 `prototype/` → `doctor` 仅提醒，不计入问题且不写文件；按需用 `prototype init {project}` 或 `doctor --fix` 建立骨架。
+- 已有 `prototype/` 缺清单或 README → `doctor` 计入问题，`prototype init {project}` 或 `doctor --fix` 可安全补建；元数据非法、软链或路径越界 → 报错且不覆盖，核对并修正声明后重查。
 
 ## 检查点
 
@@ -103,6 +123,13 @@ python3 happlylong.py doctor --fix          # 全量体检 + 自动修复 _index
 2. `link add` 的 target 必须是绝对路径；相对路径一律拒绝。
 3. `--role` 必须显式声明；每仓补齐 `--desc` 功能定位与 `--lang` 代码类型——`link list` 应能仅凭登记读出「哪个仓干什么、什么技术」。
 4. 新项目完成后把 `profile.yaml → stack.langs/frameworks` 人工补齐（doctor 只提醒探测差异）。
+
+## 修订历史
+
+| 日期 | 变更 |
+|------|------|
+| 2026-10-16 | 增加本地 HTML 预览命令、兼容字段、直接打开约束与文件页验收要求。 |
+| 2026-10-15 | 增加项目级产品原型的路径、来源、业务交付边界与存量项目兼容规则。 |
 
 ## [Next Steps]
 

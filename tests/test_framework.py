@@ -568,6 +568,360 @@ class TestAuditReleaseFixes(unittest.TestCase):
         rc, out = self._run(hy.cmd_project_new, argparse.Namespace(name=name, title="Demo", description=""))
         self.assertEqual(rc, 0, out)
 
+    def _prototype_doctor(self, fix=False):
+        hy.SESSION_BINDINGS_DIR.mkdir(parents=True, exist_ok=True)
+        (hy.ROOT / ".agents/skills").mkdir(parents=True, exist_ok=True)
+        local_templates = hy.HY_DIR / "templates"
+        shutil.copytree(hy.template_root(), local_templates, dirs_exist_ok=True)
+        with mock.patch.dict(os.environ, {"HY_SESSION_ID": "prototype-unit-test"}, clear=True), \
+                mock.patch.object(hy, "template_root", return_value=local_templates):
+            return self._run(hy.cmd_doctor, argparse.Namespace(fix=fix))
+
+    def test_new_project_has_planned_prototype_without_changing_session(self):
+        with mock.patch.dict(os.environ, {}, clear=True):
+            self._project()
+            rc, output = self._run(hy.main, ["prototype", "show", "demo"])
+        self.assertEqual(rc, 0, output)
+        data = hy.yaml.safe_load(output)
+        self.assertEqual(data["path"], str(hy.WORKSPACE_ROOT / "demo/prototype"))
+        self.assertEqual(data["status"], "planned")
+        self.assertEqual(data["preview_mode"], "file")
+        self.assertEqual(data["entry_uri"], (hy.prototype_dir("demo") / "index.html").as_uri())
+        self.assertFalse(data["entry_exists"])
+        self.assertEqual(data["source_iterations"], [])
+        self.assertTrue((hy.prototype_dir("demo") / "README.md").is_file())
+        self.assertFalse(hy.SESSION_BINDINGS_DIR.exists())
+        self.assertEqual(list((hy.WORKSPACE_ROOT / "demo/iterations").iterdir()), [])
+
+    def test_prototype_init_migrates_legacy_project_and_preserves_content(self):
+        self._project()
+        directory = hy.prototype_dir("demo")
+        directory.rename(directory.with_name("prototype-before"))
+        directory.mkdir()
+        index = directory / "index.html"
+        index.write_text("<h1>Existing design</h1>", encoding="utf-8")
+        readme = directory / "README.md"
+        readme.write_text("Project-authored notes", encoding="utf-8")
+        before = {path: path.read_bytes() for path in (index, readme)}
+        rc, output = self._run(hy.main, ["prototype", "init", "demo"])
+        self.assertEqual(rc, 0, output)
+        manifest = directory / "_index.yaml"
+        before[manifest] = manifest.read_bytes()
+        rc, output = self._run(hy.main, ["prototype", "init", "demo"])
+        self.assertEqual(rc, 0, output)
+        self.assertEqual({path: path.read_bytes() for path in before}, before)
+        self.assertEqual(hy.read_prototype("demo")["status"], "planned")
+
+    def test_prototype_manifest_validation_precedes_any_repairs(self):
+        self._project()
+        directory = hy.prototype_dir("demo")
+        manifest = directory / "_index.yaml"
+        readme = directory / "README.md"
+        readme.rename(directory / "README.before.md")
+        original = manifest.read_bytes()
+        for invalid in (b"", b"[]", b"project: other\n", b"&a {schema: *a}"):
+            manifest.write_bytes(invalid)
+            rc, output = self._run(hy.main, ["prototype", "init", "demo"])
+            self.assertEqual(rc, 2, output)
+            self.assertEqual(manifest.read_bytes(), invalid)
+            self.assertFalse(readme.exists())
+        manifest.write_bytes(original)
+        self.assertEqual(self._run(hy.main, ["prototype", "init", "demo"])[0], 0)
+        self.assertEqual(manifest.read_bytes(), original)
+        self.assertTrue(readme.is_file())
+
+    def test_prototype_entry_rejects_escape_and_directory_paths(self):
+        self._project()
+        manifest = hy.prototype_dir("demo") / "_index.yaml"
+        data = hy.read_prototype("demo")
+        for bad in ("../profile.yaml", "/tmp/outside.html", "C:\\outside.html", "ui/../../outside",
+                    "ui//index.html", "./index.html", "ui\\index.html", "index.html\n", "", None,
+                    "index.js", "index.svg", "index", "index.html#learn", "https://example.com/index.html"):
+            hy.write_yaml_file(manifest, {**data, "entry": bad})
+            with self.assertRaises(hy.HyError, msg=repr(bad)):
+                hy.read_prototype("demo")
+        (manifest.parent / "ui").mkdir()
+        hy.write_yaml_file(manifest, {**data, "entry": "ui"})
+        with self.assertRaises(hy.HyError):
+            hy.read_prototype("demo")
+
+    def test_prototype_preview_mode_defaults_for_legacy_manifests_without_rewriting(self):
+        self._project()
+        manifest = hy.prototype_dir("demo") / "_index.yaml"
+        data = hy.read_prototype("demo")
+        data.pop("preview_mode")
+        hy.write_yaml_file(manifest, data)
+        before = manifest.read_bytes()
+        self.assertEqual(hy.read_prototype("demo")["preview_mode"], "file")
+        self.assertEqual(manifest.read_bytes(), before)
+        for invalid in ("http", "server", "file://", "", None, False, [], {}):
+            with self.subTest(preview_mode=invalid):
+                hy.write_yaml_file(manifest, {**data, "preview_mode": invalid})
+                rc, output = self._run(hy.main, ["prototype", "show", "demo"])
+                self.assertEqual(rc, 2, output)
+                self.assertIn("preview_mode", output)
+
+    def test_prototype_preview_requires_an_existing_html_entry_before_opening(self):
+        self._project()
+        with mock.patch.object(hy.webbrowser, "open") as browser_open:
+            for extra in ([], ["--open"]):
+                rc, output = self._run(hy.main, ["prototype", "preview", "demo", *extra])
+                self.assertEqual(rc, 2, output)
+                self.assertIn("index.html", output)
+            browser_open.assert_not_called()
+
+    def test_prototype_preview_is_read_only_and_cwd_independent_with_encoded_uri(self):
+        self._project()
+        directory = hy.prototype_dir("demo")
+        entry = directory / "界面 空格" / "阅读 #1%.HTML"
+        entry.parent.mkdir()
+        entry.write_text("<!doctype html><title>Local demo</title>", encoding="utf-8")
+        manifest = directory / "_index.yaml"
+        source = "261015-feat-sample"
+        source_path = hy.iteration_dir("demo", source)
+        source_path.mkdir()
+        hy.write_yaml_file(source_path / "_index.yaml", {
+            "id": source, "project": "demo", "stages": {"prd": "done", "dev": "pending", "smoke": "pending"},
+        })
+        hy.write_yaml_file(manifest, {
+            **hy.read_prototype("demo"), "entry": entry.relative_to(directory).as_posix(),
+            "status": "ready", "source_iterations": [source],
+        })
+        before = {path: path.read_bytes() for path in self.tmp.rglob("*") if path.is_file()}
+        original_cwd = pathlib.Path.cwd()
+        with mock.patch.dict(os.environ, {}, clear=True), mock.patch.object(hy.webbrowser, "open") as browser_open:
+            try:
+                os.chdir(self.tmp.parent)
+                rc, output = self._run(hy.main, ["prototype", "preview", "demo"])
+            finally:
+                os.chdir(original_cwd)
+            browser_open.assert_not_called()
+        self.assertEqual(rc, 0, output)
+        data = hy.yaml.safe_load(output)
+        self.assertEqual(data["entry_path"], str(entry))
+        self.assertEqual(data["entry_uri"], entry.as_uri())
+        self.assertIn("%20", data["entry_uri"])
+        self.assertIn("%23", data["entry_uri"])
+        self.assertIn("%25", data["entry_uri"])
+        self.assertNotIn("阅读", data["entry_uri"])
+        self.assertEqual(data["preview_mode"], "file")
+        self.assertFalse(data["open_requested"])
+        self.assertFalse(data["browser_accepted"])
+        self.assertFalse(hy.SESSION_BINDINGS_DIR.exists())
+        self.assertEqual({path: path.read_bytes() for path in self.tmp.rglob("*") if path.is_file()}, before)
+
+    def test_prototype_preview_opens_only_local_html_and_reports_browser_acceptance(self):
+        self._project()
+        directory = hy.prototype_dir("demo")
+        entry = directory / "index.htm"
+        entry.write_text("<!doctype html><title>Local demo</title>", encoding="utf-8")
+        manifest = directory / "_index.yaml"
+        hy.write_yaml_file(manifest, {**hy.read_prototype("demo"), "entry": "index.htm"})
+        before = manifest.read_bytes()
+        with mock.patch.object(hy.webbrowser, "open", return_value=True) as browser_open:
+            rc, output = self._run(hy.main, ["prototype", "preview", "demo", "--open"])
+        self.assertEqual(rc, 0, output)
+        browser_open.assert_called_once_with(entry.as_uri(), new=2)
+        data = hy.yaml.safe_load(output)
+        self.assertTrue(data["open_requested"])
+        self.assertTrue(data["browser_accepted"])
+        self.assertEqual(manifest.read_bytes(), before)
+
+    def test_prototype_preview_browser_failures_provide_manual_file_uri(self):
+        self._project()
+        entry = hy.prototype_dir("demo") / "index.html"
+        entry.write_text("<!doctype html><title>Local demo</title>", encoding="utf-8")
+        for result in (False, hy.webbrowser.Error("browser unavailable"), OSError("launch failed")):
+            with self.subTest(result=result):
+                kwargs = {"side_effect": result} if isinstance(result, Exception) else {"return_value": result}
+                with mock.patch.object(hy.webbrowser, "open", **kwargs):
+                    rc, output = self._run(hy.main, ["prototype", "preview", "demo", "--open"])
+                self.assertEqual(rc, 2, output)
+                self.assertIn(entry.as_uri(), output)
+                self.assertNotIn("Traceback", output)
+
+    def test_prototype_preview_refuses_symlink_entry_before_browser_dispatch(self):
+        self._project()
+        entry = hy.prototype_dir("demo") / "index.html"
+        outside = self.tmp / "outside.html"
+        outside.write_text("<h1>Outside</h1>", encoding="utf-8")
+        entry.symlink_to(outside)
+        with mock.patch.object(hy.webbrowser, "open") as browser_open:
+            rc, output = self._run(hy.main, ["prototype", "preview", "demo", "--open"])
+        self.assertEqual(rc, 2, output)
+        browser_open.assert_not_called()
+        self.assertEqual(outside.read_text(encoding="utf-8"), "<h1>Outside</h1>")
+
+    def test_prototype_symlink_directory_manifest_readme_and_entry_rejected(self):
+        self._project()
+        directory = hy.prototype_dir("demo")
+        outside = self.tmp / "outside-prototype"
+        outside.mkdir()
+        victim = outside / "index.html"
+        victim.write_text("untouched", encoding="utf-8")
+        for name in ("_index.yaml", "README.md"):
+            target = directory / name
+            target.rename(directory / (name + ".before"))
+            target.symlink_to(victim)
+            with self.assertRaises(hy.HyError):
+                hy.ensure_prototype_scaffold("demo", "Demo")
+            target.unlink()
+            (directory / (name + ".before")).rename(target)
+        (directory / "index.html").symlink_to(victim)
+        with self.assertRaises(hy.HyError):
+            hy.read_prototype("demo")
+        (directory / "index.html").unlink()
+        (directory / "ui").symlink_to(outside, target_is_directory=True)
+        manifest = directory / "_index.yaml"
+        data = hy.read_prototype("demo")
+        hy.write_yaml_file(manifest, {**data, "entry": "ui/index.html"})
+        with self.assertRaises(hy.HyError):
+            hy.read_prototype("demo")
+        directory.rename(directory.with_name("prototype-before"))
+        directory.symlink_to(outside, target_is_directory=True)
+        with self.assertRaises(hy.HyError):
+            hy.ensure_prototype_scaffold("demo", "Demo")
+        self.assertEqual(victim.read_text(encoding="utf-8"), "untouched")
+
+    def test_prototype_draft_and_ready_require_entry_and_valid_source_iterations(self):
+        self._project()
+        directory = hy.prototype_dir("demo")
+        manifest = directory / "_index.yaml"
+        data = hy.read_prototype("demo")
+        for status in ("draft", "ready"):
+            hy.write_yaml_file(manifest, {**data, "status": status})
+            with self.assertRaises(hy.HyError):
+                hy.read_prototype("demo")
+        (directory / "index.html").write_text("<h1>Demo</h1>", encoding="utf-8")
+        source = "261015-feat-sample"
+        source_path = directory.parent / "iterations" / source
+        source_path.mkdir()
+        hy.write_yaml_file(source_path / "_index.yaml", {
+            "id": source, "project": "demo", "stages": {"prd": "done", "dev": "pending", "smoke": "pending"},
+        })
+        for status in hy.PROTOTYPE_STATUSES:
+            hy.write_yaml_file(manifest, {**data, "status": status, "source_iterations": [source]})
+            self.assertEqual(hy.read_prototype("demo")["source_iterations"], [source])
+        for bad in ([source, source], ["261015-feat-absent"], ["../other"], [False], "sample"):
+            hy.write_yaml_file(manifest, {**data, "source_iterations": bad})
+            with self.assertRaises(hy.HyError, msg=str(bad)):
+                hy.read_prototype("demo")
+
+    def test_prototype_source_requires_valid_workspace_scoped_iteration_metadata(self):
+        self._project()
+        source = "261015-feat-sample"
+        source_path = hy.iteration_dir("demo", source)
+        source_path.mkdir()
+        manifest = hy.prototype_dir("demo") / "_index.yaml"
+        data = {**hy.read_prototype("demo"), "source_iterations": [source]}
+        hy.write_yaml_file(manifest, data)
+        with self.assertRaises(hy.HyError):
+            hy.read_prototype("demo")
+        metadata = source_path / "_index.yaml"
+        for invalid in ({}, [], {"id": source}, {"project": "demo"},
+                        {"id": "261015-feat-other", "project": "demo"},
+                        {"id": source, "project": "other"},
+                        {"id": source, "project": "demo", "stages": []}):
+            hy.write_yaml_file(metadata, invalid)
+            rc, output = self._run(hy.main, ["prototype", "show", "demo"])
+            self.assertEqual(rc, 2, output)
+            self.assertIn("_index.yaml", output)
+        hy.write_yaml_file(metadata, {"id": source, "project": "demo", "stages": {"prd": "done"}})
+        self.assertEqual(hy.read_prototype("demo")["source_iterations"], [source])
+        metadata.rename(source_path / "_index.before.yaml")
+        metadata.symlink_to(source_path / "_index.before.yaml")
+        with self.assertRaises(hy.HyError):
+            hy.read_prototype("demo")
+
+    def test_prototype_timestamp_overflow_fails_with_manifest_and_field_context(self):
+        self._project()
+        manifest = hy.prototype_dir("demo") / "_index.yaml"
+        data = hy.read_prototype("demo")
+        for field in ("created", "updated"):
+            for invalid in ("not-a-time", "9999-12-31T23:59:59-23:59", "0001-01-01T00:00:00+23:59"):
+                hy.write_yaml_file(manifest, {**data, field: invalid})
+                rc, output = self._run(hy.main, ["prototype", "show", "demo"])
+                self.assertEqual(rc, 2, output)
+                self.assertIn(str(manifest), output)
+                self.assertIn(field, output)
+                self.assertNotIn("Traceback", output)
+        rc, output = self._prototype_doctor(fix=True)
+        self.assertEqual(rc, 1, output)
+        self.assertIn("updated", output)
+
+    def test_prototype_commands_reject_unregistered_projects_and_traversal(self):
+        self._project()
+        hy.write_yaml_file(hy.WORKSPACE_INDEX, {"schema": 1, "projects": {}})
+        for action in ("init", "show", "preview"):
+            for project in ("demo", "../demo", "unknown"):
+                rc, output = self._run(hy.main, ["prototype", action, project])
+                self.assertEqual(rc, 2, output)
+
+    def test_prototype_doctor_allows_absent_legacy_directory_and_explicitly_migrates_it(self):
+        self._project()
+        directory = hy.prototype_dir("demo")
+        directory.rename(directory.with_name("prototype-before"))
+        iteration = directory.parent / "iterations/261015-feat-sample"
+        iteration.mkdir()
+        meta = iteration / "_index.yaml"
+        meta.write_text("stages: {prd: done, dev: pending, smoke: pending}\n", encoding="utf-8")
+        before = meta.read_bytes()
+        rc, output = self._prototype_doctor()
+        self.assertEqual(rc, 0, output)
+        self.assertIn("prototype init demo", output)
+        self.assertFalse(directory.exists())
+        rc, output = self._prototype_doctor(fix=True)
+        self.assertEqual(rc, 0, output)
+        self.assertTrue((directory / "_index.yaml").is_file())
+        self.assertEqual(meta.read_bytes(), before)
+        rc, output = self._prototype_doctor()
+        self.assertEqual(rc, 0, output)
+
+    def test_prototype_doctor_flags_partial_scaffold_and_repairs_additively(self):
+        self._project()
+        directory = hy.prototype_dir("demo")
+        manifest = directory / "_index.yaml"
+        manifest.rename(directory / "_index.before.yaml")
+        readme = directory / "README.md"
+        readme.write_text("Preserve project-authored prototype notes", encoding="utf-8")
+        before = readme.read_bytes()
+        rc, output = self._prototype_doctor()
+        self.assertEqual(rc, 1, output)
+        self.assertIn("prototype init demo", output)
+        self.assertFalse(manifest.exists())
+        rc, output = self._prototype_doctor(fix=True)
+        self.assertEqual(rc, 0, output)
+        self.assertEqual(readme.read_bytes(), before)
+        self.assertEqual(hy.read_prototype("demo")["status"], "planned")
+
+    def test_prototype_doctor_does_not_repair_invalid_metadata(self):
+        self._project()
+        manifest = hy.prototype_dir("demo") / "_index.yaml"
+        invalid = "schema: 3\nproject: other\n"
+        manifest.write_text(invalid, encoding="utf-8")
+        rc, output = self._prototype_doctor(fix=True)
+        self.assertEqual(rc, 1, output)
+        self.assertIn("_index.yaml", output)
+        self.assertEqual(manifest.read_text(encoding="utf-8"), invalid)
+
+    def test_prototype_init_failure_rolls_back_only_added_files(self):
+        self._project()
+        directory = hy.prototype_dir("demo")
+        directory.rename(directory.with_name("prototype-before"))
+        directory.mkdir()
+        sentinel = directory / "index.html"
+        sentinel.write_text("Existing design", encoding="utf-8")
+        original_open = pathlib.Path.open
+        def fail_readme(path, *args, **kwargs):
+            if path == directory / "README.md" and args and args[0] == "x":
+                raise OSError("injected scaffold failure")
+            return original_open(path, *args, **kwargs)
+        with mock.patch.object(pathlib.Path, "open", new=fail_readme):
+            with self.assertRaises(hy.HyError):
+                hy.ensure_prototype_scaffold("demo", "Demo")
+        self.assertEqual(list(directory.iterdir()), [sentinel])
+        self.assertEqual(sentinel.read_text(encoding="utf-8"), "Existing design")
+
     def test_validate_iteration_id_rejects_traversal(self):
         for bad in ("../victim", "..\\victim", "/tmp/victim", "260901-feat-x/../../victim",
                     "260901-feat-x\n", "bad id", "", "260901-hack-x"):

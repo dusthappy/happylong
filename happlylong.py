@@ -10,7 +10,8 @@
 用法：
   python3 happlylong.py [--session-id ID] <command> [args]
   常用：init [--lang zh|en] / lang [zh|en] / status / doctor / project new /
-        link add|rm|apply|list / iter new|list|show|close / session show|set|back|clear
+        link add|rm|apply|list / prototype init|show|preview /
+        iter new|list|show|close / session show|set|back|clear
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ import shutil
 import subprocess
 import sys
 import uuid
+import webbrowser
 from collections.abc import Mapping
 from contextlib import contextmanager
 from datetime import datetime
@@ -78,6 +80,7 @@ LANGUAGES = ("zh", "en")
 ITER_TYPES = ("feat", "fix", "refactor", "doc", "chore")
 REPO_ROLES = ("frontend", "backend", "service", "fullstack", "lib")
 STAGES = ("prd", "dev", "smoke")  # contract 为 _index.yaml 独立字段（/hy-req 内闭合）
+PROTOTYPE_STATUSES = ("planned", "draft", "ready")
 
 ITER_ID_PATTERN = re.compile(r"^(\d{6})-(feat|fix|refactor|doc|chore)-([a-z0-9]+(?:-[a-z0-9]+)*)")
 ITER_ID_FORMAT_HINT = "YYMMDD-{feat|fix|refactor|doc|chore}-slug"
@@ -116,6 +119,7 @@ UI_EN: dict[str, str] = {
     "\n[3] 会话": "\n[3] Session",
     "\n[4] 共享规范": "\n[4] Shared standards",
     "\n[5] 知识库（覆盖情况，缺项仅提醒不计入问题）": "\n[5] Knowledge base (coverage; missing items are hints, not failures)",
+    "\n[6] 产品原型": "\n[6] Product prototypes",
     "\n项目:": "\nProjects:",
     "\n会话:": "\nSession:",
     "\n最近迭代:": "\nRecent iterations:",
@@ -179,7 +183,21 @@ UI_EN: dict[str, str] = {
     "项目管理": "project management",
     "项目目录已存在: workspace/{}": "project directory already exists: workspace/{}",
     "项目已创建: workspace/{}": "project created: workspace/{}",
-    "结构: profile.yaml / code_lib/ / iterations/": "layout: profile.yaml / code_lib/ / iterations/",
+    "结构: profile.yaml / code_lib/ / iterations/ / prototype/": "layout: profile.yaml / code_lib/ / iterations/ / prototype/",
+    "产品原型管理": "product prototype management",
+    "初始化项目产品原型目录（幂等，不覆盖已有文件）": "initialize the project prototype directory (idempotent; preserve existing files)",
+    "查看原型路径、入口与状态": "show the prototype path, entry, and status",
+    "查看可直接打开的本地 HTML 原型入口": "show the directly openable local HTML prototype entry",
+    "用默认浏览器打开本地 HTML（不启动服务）": "open the local HTML in the default browser (no server)",
+    "原型入口必须是原型目录内的 .html 或 .htm 文件: {}": "prototype entry must be an .html or .htm file inside the prototype directory: {}",
+    "原型入口尚未创建，无法预览: {}": "prototype entry has not been created and cannot be previewed: {}",
+    "浏览器未接受打开请求，请手动打开: {}": "the browser did not accept the open request; open manually: {}",
+    "调用浏览器失败: {}；请手动打开: {}": "could not launch a browser: {}; open manually: {}",
+    "原型骨架已就绪: workspace/{}/prototype/（新增 {} 个文件）": "prototype scaffold ready: workspace/{}/prototype/ ({} files added)",
+    "原型骨架缺失: {}；运行 prototype init {}": "prototype scaffold missing: {}; run prototype init {}",
+    "{}: 原型目录尚未初始化（旧项目可选）；运行 prototype init {} 按需启用": "{}: prototype directory not initialized (optional for existing projects); run prototype init {} when needed",
+    "原型入口文件缺失: {}（draft/ready 必须有入口文件）": "prototype entry file missing: {} (draft/ready require an entry file)",
+    "原型状态不改变迭代 prd/dev/smoke 状态": "prototype status does not change iteration prd/dev/smoke stages",
     "结构: _index.yaml + 每仓一目录（overview/api/data/changelog 按需）": "layout: _index.yaml + one dir per repo (overview/api/data/changelog as needed)",
     "非法项目名: {}（字母开头，仅 A-Za-z0-9_-，长度 ≤64，禁止路径分隔符与 ..）": "invalid project name: {} (letter first, A-Za-z0-9_- only, ≤64 chars; path separators and .. forbidden)",
     "项目不存在: workspace/{}。已注册: {}": "project not found: workspace/{}. registered: {}",
@@ -870,6 +888,7 @@ def cmd_init(args: argparse.Namespace) -> int:
         template_root() / "iteration",
         template_root() / "project",
         template_root() / "knowledge",
+        template_root() / "prototype",
     ):
         if not sub.exists():
             sub.mkdir(parents=True, exist_ok=True)
@@ -974,9 +993,149 @@ def cmd_project_new(args: argparse.Namespace) -> int:
         (pdir / "iterations").mkdir()
         (pdir / "profile.yaml").write_text(profile, encoding="utf-8")
         index_register_project(args.name, args.title or args.name)
+        ensure_prototype_scaffold(args.name, args.title or args.name)
     print(ui('项目已创建: workspace/{}', args.name))
-    info(ui("结构: profile.yaml / code_lib/ / iterations/"))
+    info(ui("结构: profile.yaml / code_lib/ / iterations/ / prototype/"))
     info(ui("下一步: happlylong.py link add 挂载代码仓库"))
+    return 0
+
+
+# ---------------------------------------------------------------- prototype
+
+def prototype_dir(project: str) -> Path:
+    """Project-wide prototypes live outside iteration truth and production repos."""
+    return checked_path(project_dir(project) / "prototype")
+
+
+def prototype_entry_path(project: str, entry: Any) -> Path:
+    if not isinstance(entry, str) or not entry or "\\" in entry or ":" in entry \
+            or any(ord(char) < 32 or ord(char) == 127 for char in entry) \
+            or any(part in ("", ".", "..") for part in entry.split("/")):
+        raise HyError(ui("配置字段无效: {} ({})", prototype_dir(project) / "_index.yaml", "entry"))
+    if Path(entry).suffix.lower() not in (".html", ".htm"):
+        raise HyError(ui("原型入口必须是原型目录内的 .html 或 .htm 文件: {}", entry))
+    path = checked_path(prototype_dir(project) / entry)
+    if path.exists() and not path.is_file():
+        raise HyError(ui("配置字段无效: {} ({})", path, "entry must be a file"))
+    return path
+
+
+def read_prototype(project: str) -> dict[str, Any]:
+    path = checked_path(prototype_dir(project) / "_index.yaml")
+    if not path.is_file():
+        raise HyError(ui("原型骨架缺失: {}；运行 prototype init {}", path, project))
+    data = yaml_object(read_yaml_file(path), path)
+    for key, valid in (
+        ("schema", type(data.get("schema")) is int and data["schema"] == 1),
+        ("project", data.get("project") == project),
+        ("title", isinstance(data.get("title"), str) and bool(data["title"].strip())),
+        ("status", data.get("status") in PROTOTYPE_STATUSES),
+        ("preview_mode", data.get("preview_mode", "file") == "file"),
+    ):
+        if not valid:
+            raise HyError(ui("配置字段无效: {} ({})", path, key))
+    for key in ("created", "updated"):
+        if not isinstance(data.get(key), str) or not data[key].strip():
+            raise HyError(ui("配置字段无效: {} ({})", path, key))
+        timestamp_instant(data[key], source=path, field=key)
+    sources = data.get("source_iterations")
+    if not isinstance(sources, list):
+        raise HyError(ui("配置字段无效: {} ({})", path, "source_iterations"))
+    seen = set()
+    for source in sources:
+        if not isinstance(source, str) or not ITER_ID_PATTERN.fullmatch(source) or source in seen:
+            raise HyError(ui("配置字段无效: {} ({})", path, "source_iterations"))
+        seen.add(source)
+        source_path = iteration_dir(project, source)
+        meta = read_iteration_meta(source_path) if source_path.is_dir() else None
+        if not meta or meta.get("id") != source or meta.get("project") != project:
+            raise HyError(ui("配置字段无效: {} ({})", path, f"source_iterations: {source}"))
+    entry = prototype_entry_path(project, data.get("entry"))
+    if data["status"] != "planned" and not entry.is_file():
+        raise HyError(ui("原型入口文件缺失: {}（draft/ready 必须有入口文件）", entry))
+    # Schema 1 manifests created before local previews remain readable without a rewrite.
+    data["preview_mode"] = "file"
+    return data
+
+
+def prototype_missing_files(project: str) -> list[Path]:
+    directory = prototype_dir(project)
+    if directory.exists() and not directory.is_dir():
+        raise HyError(ui("配置字段无效: {} ({})", directory, "directory"))
+    paths = [checked_path(directory / name) for name in ("_index.yaml", "README.md")]
+    for path in paths:
+        if path.exists() and not path.is_file():
+            raise HyError(ui("配置字段无效: {} ({})", path, "file"))
+    if paths[0].exists():
+        read_prototype(project)  # A malformed existing manifest is never silently replaced.
+    else:
+        prototype_entry_path(project, "index.html")
+    return [path for path in paths if not path.exists()]
+
+
+def ensure_prototype_scaffold(project: str, title: str) -> int:
+    missing = prototype_missing_files(project)
+    mapping = {
+        "project": yaml_scalar(project), "title": yaml_scalar(title),
+        "project_name": project, "created": yaml_scalar(local_timestamp()),
+    }
+    contents = {path: fill_template(f"prototype/{path.name}.tpl", mapping) for path in missing}
+    if contents:
+        directory = prototype_dir(project)
+        with mutation_transaction(list(contents) if directory.exists() else [directory]):
+            directory.mkdir(parents=True, exist_ok=True)
+            for path, content in contents.items():
+                with path.open("x", encoding="utf-8") as handle:
+                    handle.write(content)
+    return len(contents)
+
+
+def require_registered_prototype_project(project: str) -> dict[str, Any]:
+    profile = read_profile(project)
+    if project not in read_workspace_registry().get("projects", {}):
+        raise HyError(ui("workspace/_index.yaml 缺少项目 {}，请先 project new", project))
+    return profile
+
+
+def cmd_prototype_init(args: argparse.Namespace) -> int:
+    profile = require_registered_prototype_project(args.project)
+    added = ensure_prototype_scaffold(args.project, profile.get("title") or args.project)
+    info(ui("原型骨架已就绪: workspace/{}/prototype/（新增 {} 个文件）", args.project, added))
+    info(ui("原型状态不改变迭代 prd/dev/smoke 状态"))
+    return 0
+
+
+def prototype_preview_info(project: str) -> dict[str, Any]:
+    require_registered_prototype_project(project)
+    data = read_prototype(project)
+    entry = prototype_entry_path(project, data["entry"])
+    return {
+        **data, "path": str(prototype_dir(project)),
+        "entry_path": str(entry), "entry_uri": entry.as_uri(), "entry_exists": entry.is_file(),
+    }
+
+
+def cmd_prototype_show(args: argparse.Namespace) -> int:
+    print(yaml.safe_dump(prototype_preview_info(args.project), allow_unicode=True, sort_keys=False).rstrip())
+    return 0
+
+
+def cmd_prototype_preview(args: argparse.Namespace) -> int:
+    data = prototype_preview_info(args.project)
+    if not data["entry_exists"]:
+        raise HyError(ui("原型入口尚未创建，无法预览: {}", data["entry_path"]))
+    data["open_requested"] = args.open
+    # Browser acceptance is not proof that rendering or interactions work.
+    data["browser_accepted"] = False
+    if args.open:
+        try:
+            accepted = webbrowser.open(data["entry_uri"], new=2)
+        except (webbrowser.Error, OSError) as exc:
+            raise HyError(ui("调用浏览器失败: {}；请手动打开: {}", exc, data["entry_uri"])) from exc
+        if not accepted:
+            raise HyError(ui("浏览器未接受打开请求，请手动打开: {}", data["entry_uri"]))
+        data["browser_accepted"] = True
+    print(yaml.safe_dump(data, allow_unicode=True, sort_keys=False).rstrip())
     return 0
 
 
@@ -1557,13 +1716,13 @@ def cmd_knowledge_status(args: argparse.Namespace) -> int:
 
 # ---------------------------------------------------------------- doctor / status
 
-def timestamp_instant(value: Any) -> datetime:
+def timestamp_instant(value: Any, *, source: Any = "knowledge", field: str = "timestamp") -> datetime:
     try:
         # Python 3.10 requires a colon in offsets; existing metadata uses %z.
         normalized = re.sub(r"([+-]\d{2})(\d{2})$", r"\1:\2", str(value).replace("Z", "+00:00"))
         return datetime.fromisoformat(normalized).astimezone()
-    except ValueError as exc:
-        raise HyError(ui("配置字段无效: {} ({})", "knowledge", "timestamp")) from exc
+    except (ValueError, OverflowError) as exc:
+        raise HyError(ui("配置字段无效: {} ({})", source, field)) from exc
 
 
 def run_doctor(fix: bool = False) -> tuple[int, list[str]]:
@@ -1699,6 +1858,24 @@ def run_doctor(fix: bool = False) -> tuple[int, list[str]]:
             else:
                 warn(ui('{}/{}: 缺 overview.md（/hy-knowledge bootstrap 注入）', pdir.name, name))
 
+    print(ui("\n[6] 产品原型"))
+    for project, profile in sorted(valid_profiles.items()):
+        try:
+            if not prototype_dir(project).exists() and not fix:
+                warn(ui("{}: 原型目录尚未初始化（旧项目可选）；运行 prototype init {} 按需启用", project, project))
+                continue
+            missing = prototype_missing_files(project)
+            if missing and fix:
+                added = ensure_prototype_scaffold(project, profile.get("title") or project)
+                info(ui("原型骨架已就绪: workspace/{}/prototype/（新增 {} 个文件）", project, added))
+            elif missing:
+                raise HyError(ui("原型骨架缺失: {}；运行 prototype init {}", ", ".join(str(p) for p in missing), project))
+            data = read_prototype(project)
+            info(f"{project}/prototype [{data['status']}] entry={data['entry']}")
+        except HyError as exc:
+            problems.append(str(exc))
+            fail(str(exc))
+
     return len(problems), problems
 
 
@@ -1750,6 +1927,8 @@ CREDENTIAL_PATTERNS = (
 )
 REQUIRED_TEMPLATES = (
     "project/profile.yaml.tpl",
+    "prototype/_index.yaml.tpl",
+    "prototype/README.md.tpl",
     *(f"iteration/{name}.tpl" for name in (
         "_index.yaml", "prd.md", "contract.md", "plan.md", "smoke.md", "fix.md", "review.md")),
     *(f"knowledge/{name}.md.tpl" for name in ("overview", "api", "data", "changelog")),
@@ -2194,6 +2373,19 @@ def build_parser() -> argparse.ArgumentParser:
     p_new.add_argument("--title", default="")
     p_new.add_argument("--description", default="")
     p_new.set_defaults(func=cmd_project_new)
+
+    p_proto = sub.add_parser("prototype", help=ui("产品原型管理"))
+    proto_sub = p_proto.add_subparsers(dest="action", required=True)
+    p_pinit = proto_sub.add_parser("init", help=ui("初始化项目产品原型目录（幂等，不覆盖已有文件）"))
+    p_pinit.add_argument("project")
+    p_pinit.set_defaults(func=cmd_prototype_init)
+    p_pshow = proto_sub.add_parser("show", help=ui("查看原型路径、入口与状态"))
+    p_pshow.add_argument("project")
+    p_pshow.set_defaults(func=cmd_prototype_show)
+    p_ppreview = proto_sub.add_parser("preview", help=ui("查看可直接打开的本地 HTML 原型入口"))
+    p_ppreview.add_argument("project")
+    p_ppreview.add_argument("--open", action="store_true", help=ui("用默认浏览器打开本地 HTML（不启动服务）"))
+    p_ppreview.set_defaults(func=cmd_prototype_preview)
 
     p_link = sub.add_parser("link", help=ui("代码库软链管理"))
     link_sub = p_link.add_subparsers(dest="action", required=True)

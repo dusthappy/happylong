@@ -1,6 +1,6 @@
 ---
 name: hy-project
-description: "workspace project and codebase symlink management: project new / link add three modes (single repo, FE+BE dual repos, shared backend + subprojects) / pending linking / doctor check. Triggered by /hy-project when onboarding a project or when symlinks misbehave."
+description: "workspace project and codebase symlink management: project new / link add three modes (single repo, FE+BE dual repos, shared backend + subprojects) / prototype directory / pending linking / doctor check. Triggered by /hy-project when onboarding a project, managing prototype directories, or when symlinks misbehave."
 metadata:
   hy:
     command: hy-project
@@ -85,6 +85,24 @@ python3 happlylong.py link add demo demo_new /abs/demo_new --role frontend --lan
 python3 happlylong.py link apply demo
 ```
 
+## Project-level product prototype
+
+`project new` automatically scaffolds `prototype/_index.yaml` and `prototype/README.md` alongside `iterations/`. Add missing files to existing projects through the tool:
+
+```bash
+python3 happlylong.py prototype init demo
+python3 happlylong.py prototype show demo
+python3 happlylong.py prototype preview demo
+python3 happlylong.py prototype preview demo --open
+```
+
+- `init` only creates missing scaffold files without overwriting content or generating placeholder business pages; `show` validates and displays metadata and `entry_uri`. `preview` requires an existing entry and returns its local file location; only `--open` opens the file URI in the system default browser. Preview never starts a server, and these commands never change iteration bindings or business stages.
+- `_index.yaml` fields are `schema: 1`, `project`, `title`, `entry`, `preview_mode: file`, `status`, `source_iterations`, `created`, and `updated`. Schema 1 manifests without `preview_mode` default to `file`. The entry must be a relative `.html`/`.htm` file within the prototype directory; source iterations must exist in the same project.
+- `status` is `planned/draft/ready`; `planned` permits an entry that has not been created, while `draft/ready` require an existing entry. `ready` means the prototype is reviewable only.
+- README records source roadmap, PRD, requirements coverage, and page versions, with mocked services, instructions to double-click the HTML file, and verification evidence. Maintain the cross-iteration prototype here only; iteration-specific attachments stay in `attach/` and link to it.
+- Prototypes must open directly as local HTML in a browser (`file://`), using relative CSS, classic scripts, media paths, or inline assets. Do not require users to run Node/npm, a server, or a build first. Keep demo data in local classic scripts or HTML; do not depend on fetching local JSON, ES modules, a CDN, or service workers. If the browser restricts storage on file pages, visibly fall back to current-page state and offer export; never automatically migrate data from the old HTTP origin. Before marking a prototype `ready`, open it through `file://` and verify key interactions, assets, and storage fallback. Static metadata checks do not replace runtime verification.
+- A prototype cannot replace PRDs/contracts, pass business ACs, or complete business `prd/dev/smoke` stages. Real business implementation still uses `/hy-dev` inside the declared `code_lib/` repositories.
+
 ## Inspection
 
 ```bash
@@ -96,6 +114,8 @@ Troubleshooting:
 - `broken`: target moved/deleted → confirm the new path, then `link rm` and re-`link add` (no force needed).
 - `no-link`: registered but the symlink is gone → `link apply {project}` skips non-pending entries; in that case rerun `link add ... --force`.
 - `_index/profile drift` → `doctor --fix` syncs automatically.
+- Legacy project with no `prototype/` directory at all → `doctor` only warns, without adding a failure or writing files. Opt into scaffolding with `prototype init {project}` or `doctor --fix`.
+- Existing `prototype/` missing its manifest or README → `doctor` reports a failure; `prototype init {project}` or `doctor --fix` safely adds missing files. Invalid metadata, symlinks, or escaping paths → fail without overwriting; inspect and correct the declaration, then check again.
 
 ## Checkpoints
 
@@ -103,6 +123,13 @@ Troubleshooting:
 2. `link add` targets must be absolute paths; relative paths are always rejected.
 3. `--role` must be declared explicitly; complete each repo with `--desc` (functional role) and `--lang` (code languages) — `link list` should read as "which repo does what, on which stack" from the registry alone.
 4. After onboarding, fill `profile.yaml → stack.langs/frameworks` by hand (doctor only warns on detection drift).
+
+## Revision history
+
+| Date | Change |
+|------|--------|
+| 2026-10-16 | Add local HTML preview commands, compatible metadata, direct-open constraints, and file-page verification requirements. |
+| 2026-10-15 | Add project-level prototype paths, source traceability, business-delivery boundaries, and legacy-project compatibility. |
 
 ## [Next Steps]
 

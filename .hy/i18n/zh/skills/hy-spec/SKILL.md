@@ -31,10 +31,12 @@ metadata:
 - **绑定必须指明 workspace**：active/previous 绑定都必须含 `project`、`iteration_id`、`iteration_path`，路径严格等于 `workspace/{project}/iterations/{iteration_id}`；禁止按裸迭代 ID、最近记录或 cwd 猜测项目。
 - 删除数据/文件前先记录删除前快照（表名/条件/行数或文件内容摘要）。
 - 未经用户明确要求禁止 `git add/commit/push`。
-- 迭代产物只落 `workspace/{project}/iterations/{id}/`；框架文件只落 `.agents/`、`.hy/`。
+- 迭代产物只落 `workspace/{project}/iterations/{id}/`；跨迭代产品原型及其说明、素材、验证证据只落同级 `workspace/{project}/prototype/`，不得替代来源迭代的 PRD/契约/验收记录。框架指令源与模板落 `.hy/`，安装产物落根 `AGENTS.md`/`CLAUDE.md` 与 `.agents/`；框架工具、测试、规范和文档保持既有路径。
+- 原型明确标记演示、计划、暂缓能力及模拟服务，记录同项目来源迭代与覆盖表；原型 `ready` 仅表示可评审，不改变绑定或业务 `prd/dev/smoke`，不据此勾选业务 AC。
 
 ### P1 硬约束
 
+- 原型交付必须可双击本地 `.html`/`.htm` 预览，无服务或构建前置；`ready` 前记录实际 `file://` 打开验证。文件页存储受限时显示当前页退化并提供导出，不自动迁移旧 HTTP 数据。
 - 工具脚本一律 `pathlib.Path`、绝对路径锚定框架根，禁止依赖 cwd。
 - 会话上下文必须先通过 `python3 happlylong.py session show` 解析；非 Codex Agent 须在启动环境提供稳定且唯一的 `HY_SESSION_ID`（或始终传同一个前置 `--session-id`），上下文压缩前后保持不变。缺少可信身份时 fail closed，禁止读取或假定 `.hy/session/current.yaml`。
 - 禁止 `except: pass`；禁止裸 `raise`，用自定义异常（工具内为 `HyError`）。
@@ -62,7 +64,7 @@ metadata:
 - 卡点 = 拿不准、有多种合理路径、影响超出当前迭代的决策。遇到卡点：停下给出「问题 + 选项 + 推荐项及理由」，用户答复前禁止推进、禁止擅自选默认值。
 - 未绑定会话是强制入口卡点：先 `iter list` 展示有效候选，再问“绑定已有 / 创建新迭代”（有结构化提问/选择 UI 时优先使用）；选择绑定后补齐 project/iteration ID，执行 `session set` 并用 `session show` 复核；选择创建后补齐 project/title/type/需求正文，转 `/hy-req` 闭合 PRD。输入无效或不完整就重新展示候选并继续问，用户取消才结束。
 - 显式 `/hy-req --title` 是唯一绕过上述二选一的信号：标题原样使用，补齐 project 后新建并绑定；即使已有绑定也新开，禁止改成复用既有迭代。
-- 纯问答、`/hy-spec`、`/hy-guide`、`/hy-roles`、项目/软链接入、框架诊断、框架源码维护与开源/发版准备，以及 `/hy-knowledge bootstrap` 不触发业务迭代门禁；自然语言是否触发以“是否会推进迭代产物或业务代码”为准。
+- 纯问答、`/hy-spec`、`/hy-guide`、`/hy-roles`、项目/软链接入、原型目录初始化/查看、框架诊断、框架源码维护与开源/发版准备，以及 `/hy-knowledge bootstrap` 不触发业务迭代门禁；自然语言是否触发以“是否会推进迭代产物或业务代码”为准。
 - 非卡点（状态机路由、计划生成、逐任务实现、自检执行）一律连续自动，一次请求能走多远走多远。
 
 ## 4. 输出质量分级
@@ -80,7 +82,7 @@ metadata:
 □ 无占位符残留（TODO/待补充/TBD/FIXME/XXX）
 □ 章节完整（对照模板）
 □ 修订历史已更新（文档类）
-□ 路径准确（产物在迭代目录、代码在声明的仓库内）
+□ 路径准确（迭代产物在迭代目录、项目原型在 prototype/、业务代码在声明仓库内）
 □ 依据语言规范做了合规自查（代码类）
 □ 无凭据硬编码、有错误处理（代码类）
 ```
@@ -93,6 +95,13 @@ metadata:
   P1 → 警告 + 立即修正后继续；无法修正则拒绝该产物
   P2 → 提示一句，继续执行
 ```
+
+## 修订历史
+
+| 日期 | 变更 |
+|------|------|
+| 2026-10-16 | 增加原型本地 HTML 直接预览、文件页验证和存储退化约束。 |
+| 2026-10-15 | 增加项目级产品原型的路径、来源与业务交付边界。 |
 
 ## [Next Steps]
 

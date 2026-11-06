@@ -20,6 +20,7 @@ happlylong (**hy** for short) turns "a product-dev process with a PRD gate" into
 
 - **Multiple projects, one workspace**: manage both independent projects and related projects that share a backend or common codebase. Connect repositories through symlinks under `workspace/{project}/code_lib/`, without moving code or changing the original repository structure;
 - **Iterative development with a traceable history**: each requirement becomes a separate iteration, recording its PRD, interface contract, development plan and implementation notes, and test results under `workspace/{project}/iterations/{id}/` for later reference, continuation, and review;
+- **A product prototype across iterations**: demonstrate the complete product flow under each project’s `prototype/`, referencing source requirements and release plans while keeping prototype verification separate from business delivery;
 - **Separate sessions, parallel development**: each AI session explicitly binds to one iteration in one project. Different sessions can advance different projects or different iterations of the same project, with clearly scoped bindings and iteration artifacts. A new unbound session first asks whether to bind an existing iteration or create a new one;
 - **No PRD, no code changes**: every change to a business repo must first go through `/hy-req`, which closes the PRD and its acceptance criteria (AC) — only then may the agent touch code;
 - **Automatic multi-repo orchestration**: split frontend/backend repos, shared backend mounted by multiple projects — `/hy-dev` orders and routes repos by role automatically.
@@ -32,7 +33,7 @@ happlylong (**hy** for short) turns "a product-dev process with a PRD gate" into
 |-----------|---------|
 | **Single-track, lightweight** | One pipeline `req → dev → test`; PRD and contract close within the req stage. No multi-framework, multi-mode machinery |
 | **Zero platform mirroring** | Only `AGENTS.md` (the cross-platform open standard) and the `.hy/i18n/` bilingual language sources are maintained (`.agents/skills/` is an install artifact); no .cursor/.claude mirror directories or sync mechanisms |
-| **The CLI is the source of truth** | A single-file CLI, `happlylong.py`, manages skeletons, symlinks, iterations, sessions, health checks, and language; all state lives in YAML files — no hidden database |
+| **The CLI is the source of truth** | A single-file CLI, `happlylong.py`, manages skeletons, symlinks, prototypes, iterations, sessions, health checks, and language; all state lives in YAML files — no hidden database |
 | **Three-stage state machine** | An iteration has exactly `prd → dev → smoke` plus a contract-closure field; artifacts are four flat files |
 
 ## Quick start
@@ -121,7 +122,7 @@ The PowerShell equivalent is `$env:HY_SESSION_ID = "claude:project-a:conversatio
 
 Context compaction does not alter the on-disk binding. As long as the ID remains unchanged across compaction, an agent restart that preserves the environment, or an agent handoff, it resolves to the same iteration. For a cross-agent handoff of one logical session, explicitly use the same `HY_SESSION_ID` on both sides and keep only one active writer at a time; genuinely concurrent sessions must use different IDs. Without a trustworthy ID, binding-dependent commands **fail closed** instead of falling back to a shared `current.yaml`, preventing silent cross-wiring.
 
-**Unbound-session entry gate**: when a new session first receives a `/hy-*` command or natural-language request that would advance requirements, development, fixing, rechecking, smoke testing, or iteration distillation, it checks the binding first. The entire stdout of `session show` is one YAML document. When unbound, it returns `active: false` plus a machine-readable `entry_gate` that declares the workspace root and required binding fields. The agent then lists valid iterations and enters an Ask-First loop in which you choose either an existing iteration or a new one. Invalid input produces no artifacts or code changes; the agent asks again. Once binding or creation succeeds, it resumes the original request. The sole exception is explicit `/hy-req --title`, which unambiguously means a new PRD and creates a new iteration as soon as the project is resolved. Pure Q&A, framework navigation/spec/role review, project or symlink onboarding, diagnostics, framework-source maintenance and open-source/release preparation, and `/hy-knowledge bootstrap` are exempt from the business-iteration gate.
+**Unbound-session entry gate**: when a new session first receives a `/hy-*` command or natural-language request that would advance requirements, development, fixing, rechecking, smoke testing, or iteration distillation, it checks the binding first. The entire stdout of `session show` is one YAML document. When unbound, it returns `active: false` plus a machine-readable `entry_gate` that declares the workspace root and required binding fields. The agent then lists valid iterations and enters an Ask-First loop in which you choose either an existing iteration or a new one. Invalid input produces no artifacts or code changes; the agent asks again. Once binding or creation succeeds, it resumes the original request. The sole exception is explicit `/hy-req --title`, which unambiguously means a new PRD and creates a new iteration as soon as the project is resolved. Pure Q&A, framework navigation/spec/role review, project or symlink onboarding, prototype scaffold initialization/inspection, diagnostics, framework-source maintenance and open-source/release preparation, and `/hy-knowledge bootstrap` are exempt from the business-iteration gate.
 
 ## Skills (all hy- prefixed)
 
@@ -136,7 +137,7 @@ Context compaction does not alter the on-disk binding. As long as the ID remains
 | `/hy-review` | Independent code review (review.md verdict) |
 | `/hy-test` | Smoke execution (AC↔result↔evidence table; fail flows back to /hy-fix) |
 | `/hy-knowledge` | Knowledge-base bootstrap cold start + iteration change distillation |
-| `/hy-project` | Project registration, three symlink modes, pending links, doctor check |
+| `/hy-project` | Project registration, three symlink modes, prototype directories, pending links, doctor check |
 
 ## shared: cross-project standards
 
@@ -146,7 +147,7 @@ For user-specified Feishu requirements, follow the [CLI and local-image guide](s
 
 ## workspace: your business-project area (local only, never committed)
 
-`workspace/` is your personal business area. **The entire directory is excluded by `.gitignore` and never enters the public repo** — the project registry and each project's profile/knowledge/iterations live only on your machine; the fictional sample is at [examples/example/](examples/example/).
+`workspace/` is your personal business area. **The entire directory is excluded by `.gitignore` and never enters the public repo** — the project registry and each project's profile/knowledge/prototype/iterations live only on your machine; the fictional sample is at [examples/example/](examples/example/).
 
 Register a project first (real project dirs live on your machine, isolated from the public repo):
 
@@ -168,6 +169,25 @@ python3 happlylong.py link apply myapp          # one-shot linking once the dir 
 
 Full details: the `/hy-project` Skill and the sample at [examples/example/](examples/example/).
 
+## Product prototype: an interactive view across iterations
+
+Keep the project-level product prototype at `workspace/{project}/prototype/`, alongside `iterations/`. `project new` scaffolds `_index.yaml` and `README.md` automatically. Existing projects can add missing scaffold files explicitly:
+
+```bash
+python3 happlylong.py prototype init myapp
+python3 happlylong.py prototype show myapp
+python3 happlylong.py prototype preview myapp
+python3 happlylong.py prototype preview myapp --open
+```
+
+`init` only creates missing scaffold files and preserves existing content without generating placeholder business pages; `show` validates and displays prototype metadata and `entry_uri`. Once the entry exists, double-click its HTML file, use `preview` to obtain the local file entry, or use `preview --open` to open its file URI in the system default browser. None of these operations starts a server. For a legacy project with no `prototype/` directory at all, `doctor` only warns: it adds no failure and writes no files. Opt into scaffolding with `prototype init` or `doctor --fix`. An existing `prototype/` missing its manifest or README is an error, and `doctor --fix` can add the missing files. Invalid existing metadata remains an error and is never overwritten. These commands neither create nor switch session bindings and never change iteration stages.
+
+`prototype/_index.yaml` uses `schema: 1` and records `project`, `title`, a relative `entry`, `preview_mode: file`, `status`, `source_iterations`, `created`, and `updated`. Schema 1 manifests without `preview_mode` default to `file`. Entries must use `.html`/`.htm`. Status is `planned`, `draft`, or `ready`: planned prototypes may lack an entry file, while draft and ready prototypes require it. `ready` means the prototype is reviewable only. Source iterations must actually exist in the same project, the entry must stay within the prototype directory, and symlinked directories or metadata are rejected.
+
+The prototype README records how to double-click its HTML entry, source roadmap/PRD/requirements coverage, each page's target version, mocked services, and verification evidence. Maintain the cross-iteration prototype here only. Keep iteration-specific screenshots, external design references, and review snapshots in that iteration's `attach/`, linking to the prototype instead of copying it. Distinguish demonstrated, planned, and deferred behavior. Mocked login, models, payments, or speech do not establish completed business features, pass business ACs, or advance `prd/dev/smoke`. Source iterations remain authoritative for requirements and contracts; route newly discovered requirements through `/hy-req`.
+
+Prototypes must open directly as local HTML in a browser (`file://`), using relative CSS, classic scripts, media paths, or inline assets. Do not require users to run Node/npm, a server, or a build first. Keep demo data in local classic scripts or HTML; do not depend on fetching local JSON, ES modules, a CDN, or service workers. If the browser restricts storage on file pages, visibly fall back to current-page state and offer export; never automatically migrate data from the old HTTP origin. Before marking a prototype `ready`, open it through `file://` and verify key interactions, assets, and storage fallback. Static metadata checks do not replace runtime verification.
+
 ## Directory map
 
 ```
@@ -180,7 +200,7 @@ AGENTS.md / CLAUDE.md  Agent spec and Claude Code entry (local install artifacts
 shared/               Cross-project standards (coding/security/testing/Git + TS/Go/Rust)
 examples/example/     Sanitized sample project
 .github/              Issue/PR templates, CI, and Dependabot configuration
-workspace/            Business-project area (local only, whole dir never committed): _index.yaml + {project}/ (profile + code_lib/ symlinks + knowledge/ + iterations/)
+workspace/            Business-project area (local only, whole dir never committed): _index.yaml + {project}/ (profile + code_lib/ symlinks + knowledge/ + prototype/ + iterations/)
 ```
 
 ## FAQ
@@ -204,6 +224,8 @@ Issues and PRs are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first: contr
 | Date | Change |
 |------|--------|
 | 2026-11-06 | Link optional Feishu CLI/local-image guidance through existing iteration attachments and skills. |
+| 2026-10-16 | Switch prototypes to directly openable local HTML; add preview commands, compatible metadata, and file-page verification rules. |
+| 2026-10-15 | Add project-level prototype directories, CLI usage, source traceability, delivery boundaries, and legacy-project compatibility. |
 
 ## License
 

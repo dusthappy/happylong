@@ -14,6 +14,16 @@
 
 - 2026-11-06：新增双语 `shared/feishu-cli.md`，独立整理 CLI 接入、按来源下载图片、缺图核对与本地验收经验；双语 hy-req 按需引用并沿用迭代 `attach/`，不新增技能体系或运行依赖，不迁入来源工程的账号、组织、任务、项目或图片数据。
 
+- 2026-10-16：新增 `prototype preview {project} [--open]`，返回本地 HTML 入口或通过系统默认浏览器打开文件 URI，不启动服务；`show` 增加 `preview_mode` 与 `entry_uri`，schema 1 旧清单省略模式时兼容为 `file`，入口限制为 `.html`/`.htm`。
+
+- 2026-10-15：项目级 `prototype/` 目录与 `iterations/` 平级；新增 `prototype init|show`，`project new` 自动建原型骨架；元数据记录入口、状态和同项目来源迭代，校验路径与入口，安全补建缺件且不覆盖现有内容；`doctor` 支持原型检查与缺件补建；存量项目完全没有原型目录时仅提醒、不计入问题且不写文件，可按需 `prototype init` 或 `doctor --fix` 初始化，已有目录缺件或清单非法仍报错。
+
+### Changed
+
+- 2026-10-16：双语原型模板、README、AGENTS 与相关 Skill 明确原型须直接打开本地 HTML，不以 Node/npm、服务或构建作为预览前提；规定本地资源兼容、文件页存储退化与导出、HTTP 数据隔离，并要求 `ready` 前实际进行 `file://` 交互验证。
+
+- 2026-10-15：中英文 README、AGENTS 语言源与 hy-project/guide/req/dev/spec 明确产品原型的来源追踪、版本覆盖、模拟服务和验证记录；项目原型与迭代附件各归其位，原型可评审状态不能替代业务 AC 或推进 `prd/dev/smoke`。
+
 ### Fixed
 
 - 2026-11-06：将 ZCode 自动生成的 `.zcodeignore` 归入本机层并加入 Git 忽略规则，修复它被误当作发布文件导致 release-check 失败的问题；发布文件白名单和扫描规则保持严格。

@@ -57,7 +57,7 @@ workspace/{project}/iterations/{YYMMDD}-{type}-{slug}/
 ├── _index.yaml      ← 三阶段状态机（stages: prd/dev/smoke）+ contract 字段
 ├── prd.md  contract.md  plan.md  smoke.md
 ├── implementation/  （fix-*.md、review.md）
-└── attach/          （原型图、外部契约等附件）
+└── attach/          （本迭代截图、外部设计稿/契约、评审快照）
 ```
 
 当前代理会话自动绑定为该迭代，状态原子写入 `.hy/session/bindings/{hash}.yaml`。缺少可信会话 ID 时工具在创建目录前 fail closed，不产生半成品，也不回退 `current.yaml`。
@@ -67,7 +67,7 @@ workspace/{project}/iterations/{YYMMDD}-{type}-{slug}/
 - 用户指定飞书资料或要求保存其中图片时，按需读取框架根下的 `shared/feishu-cli.md`：只处理已授权资源，按来源选择 CLI 下载方式，缺图时核对授权页面；完成绑定后再存当前迭代 `attach/`，验证实际图片并以相对路径引用。不引入其他工程的账号配置、业务数据或任务体系。
 - 信息齐全直接写；缺口采用 `/hy-roles` PM 四支柱（完整性/一致性/清晰性/可行性）**只问缺的**，一次打包问完（Ask-First）。
 - 模式 B/C 的拟题确认与本步澄清**合并为一轮**，避免多轮往返。
-- 会话图片/附件（原型图、截图、外部契约片段）→ 存 `attach/` 并在 PRD 登记。
+- 会话图片/附件（本迭代原型图、截图、外部契约片段）→ 存 `attach/` 并在 PRD 登记。跨迭代产品原型须可双击本地 HTML 直接预览，不依赖运行服务；统一放 `workspace/{project}/prototype/`，PRD 链接到入口或对应页面；原型 README 与 `source_iterations` 反向登记来源，并标明版本与模拟能力。原型发现的需求变化在 PRD/契约/覆盖表中闭合，不能仅修改原型。
 
 ### ④ 仓库面判定 → repos_in_scope
 
@@ -107,7 +107,7 @@ workspace/{project}/iterations/{YYMMDD}-{type}-{slug}/
 □ AC 全部可验证、有编号、无「尽量/更快」类模糊词
 □ repos_in_scope 与 PRD 内容一致且已回写 _index
 □ 契约分支结论与 _index → contract 字段一致
-□ 原型/附件已存 attach/ 并登记
+□ 单迭代附件已存 attach/ 并登记；项目原型在 prototype/ 且双向追踪来源，业务 AC 未因演示而勾选
 □ 无占位符残留；修订历史已更新
 ```
 
@@ -133,6 +133,8 @@ workspace/{project}/iterations/{YYMMDD}-{type}-{slug}/
 | 日期 | 变更 |
 |------|------|
 | 2026-11-06 | 增加按需加载飞书 CLI/图片下载指南，沿用迭代附件落点并隔离账号与业务数据。 |
+| 2026-10-16 | 明确需求引用的产品原型应可直接打开本地 HTML。 |
+| 2026-10-15 | 增加项目级产品原型的路径、来源与业务交付边界。 |
 
 ## [Next Steps]
 
