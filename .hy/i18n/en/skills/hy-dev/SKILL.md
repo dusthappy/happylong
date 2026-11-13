@@ -65,7 +65,8 @@ Only when `/hy-req` didn't complete the contract (`_index.yaml → contract` sti
 - Write code per `/hy-roles`' four implementation principles: minimal change, follow repo conventions, reuse first, closed-loop verification.
 - Coding scope: `workspace/{project}/code_lib/{repo}/`; shared repos — touch only the matching backend_app's paths.
 - Tick each plan task on completion and fill "verification evidence" (actually executed commands and result summaries; not run = not done).
-- Verification baseline (repo's own Makefile/AGENTS.md/package.json scripts take priority):
+- Before using Docker dependencies in development or verification, read `shared/compose-environment.md` and verify the backend's canonical Compose entry point, connection target, and approval scope. To extend existing configuration or create a file, present the target paths, minimal diff, and proposed actions. Make only approved edits and Docker operations, and reuse the existing environment.
+- Verification baseline (prefer the repo's Makefile/AGENTS.md/package.json scripts that meet the environment rules above):
 
   | Repo language | Baseline |
   |---------------|----------|
@@ -109,6 +110,7 @@ One checkpoint at a time, each with "question + options + recommendation".
 
 | Date | Change |
 |------|--------|
+| 2026-11-13 | Extend fixed backend Compose configuration after approval and reuse it in development and verification. |
 | 2026-10-16 | Separate local HTML prototype preview from the business development runtime. |
 | 2026-10-15 | Add project-level prototype paths, source traceability, and business-delivery boundaries. |
 

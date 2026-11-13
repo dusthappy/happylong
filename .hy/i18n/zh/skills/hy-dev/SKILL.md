@@ -64,7 +64,8 @@ metadata:
 - 按 `/hy-roles` 实现四原则落码：最小改动、跟随仓库惯例、复用优先、验证闭环。
 - 落码范围：`workspace/{project}/code_lib/{repo}/`；共享仓只动对应 backend_app 的 paths。
 - 每任务完成即勾选 plan 并填「验证证据」（实际执行的命令与结果摘要，没有跑=没有完成）。
-- 验证基线（仓库自有 Makefile/AGENTS.md/package.json scripts 优先）：
+- 开发或验证使用 Docker 依赖前先读 `shared/compose-environment.md`：确认项目后端的固定 Compose 入口、连接目标和用户批准范围。需要增补现有配置或新建文件时，先让用户审阅目标路径、最小差异和拟执行动作；仅执行明确获准的文件修改和 Docker 操作，已有环境继续复用。
+- 验证基线（优先使用符合上述环境约束的仓库 Makefile/AGENTS.md/package.json scripts）：
 
   | 仓库语言 | 基线 |
   |----------|------|
@@ -108,6 +109,7 @@ metadata:
 
 | 日期 | 变更 |
 |------|------|
+| 2026-11-13 | 开发与验证在后端增补固定 Compose 配置，获准后实施并复用。 |
 | 2026-10-16 | 区分本地 HTML 原型预览与业务开发运行流程。 |
 | 2026-10-15 | 增加项目级产品原型的路径、来源与业务交付边界。 |
 

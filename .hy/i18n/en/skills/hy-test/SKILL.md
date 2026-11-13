@@ -39,7 +39,7 @@ metadata:
 ```
 
 - **Evidence** must be traceable: commands and key output, URLs, screenshot paths (stored in `attach/`). Every `skip` needs a reason (e.g. external service temporarily unavailable); an unjustified skip counts as fail.
-- Use each repo's existing conventions for the environment (dev server / Makefile / docker compose / test accounts); unsure how to start a service → read the repo README/Makefile first, still unclear → checkpoint and ask.
+- Before using local Docker dependencies, follow `shared/compose-environment.md` and check the fixed configuration, connection target, readiness, and approval scope. Present unapproved configurations, changes, or actions outside scope and wait for approval; scripts obey the same gate. Reuse healthy services and leave shared dependencies running after smoke testing.
 
 ## Verdict and loop-back
 
@@ -53,6 +53,12 @@ metadata:
 
 - `stages.dev ≠ done` → return to `/hy-dev` to finish first (or confirm a defer and continue).
 - An AC turns out missing/wrong at smoke time → that's an AC gap checkpoint: back to `/hy-req` to revise (new AC numbers); never silently change an old AC's meaning.
+
+## Revision history
+
+| Date | Change |
+|------|--------|
+| 2026-11-13 | Use fixed Compose environments for smoke and regression only within user approval. |
 
 ## [Next Steps]
 

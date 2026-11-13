@@ -29,6 +29,8 @@ metadata:
 
 ## Flow (systematic debugging)
 
+- If reproduction needs Docker dependencies, follow `shared/compose-environment.md` and check the fixed configuration and user approval scope. Present any new configuration or unapproved action and wait for approval; do not start a separate container for reproduction.
+
 ```
 ① Reproduce   run it as described; confirm the symptom is stable and reproducible; not reproducible → checkpoint (ask for more info, don't fix blind)
 ② Locate      start from the symptom: read code paths/logs/data → hypothesis → verify the hypothesis with a minimal experiment
@@ -48,6 +50,12 @@ metadata:
 - Fix touches repos/paths beyond the plan declaration → scope checkpoint.
 - Root cause lies in a dependency / third party / the data itself (not code) → stop, explain, hand the decision to the user.
 - **No PRD, no code changes applies to fixes too**: fixing a production issue outside an iteration requires at least a minimal fix-type PRD.
+
+## Revision history
+
+| Date | Change |
+|------|--------|
+| 2026-11-13 | Verify Compose configuration and approval scope before reusing dependencies for reproduction. |
 
 ## [Next Steps]
 

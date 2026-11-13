@@ -5,7 +5,7 @@ alwaysApply: true
 
 # happlylong Agent Behavior Spec
 
-> **Version**: 0.1.2 | **Updated**: 2026-10-16
+> **Version**: 0.1.2 | **Updated**: 2026-11-13
 > happlylong (**hy** for short) is a product-dev workbench serving multiple personal projects under `workspace/`.
 > Design tenets: **single lightweight track, zero platform mirroring, the CLI is the source of truth**.
 
@@ -87,6 +87,7 @@ happlylong/                     ← framework root (directory containing this fi
 
 ## 4. P1 hard constraints
 
+- Before using long-lived local Docker dependencies, read `shared/compose-environment.md`. Keep Compose in the current project's backend directory and extend existing configuration only where needed. Present file paths, concrete YAML/diffs, and actions for user review. Edit files and act only within explicit approval. Carry approval forward for the same environment, configuration, and scope, and reuse fixed container names and instances.
 - Always use `pathlib.Path` for paths (tool scripts); never depend on cwd — anchor at the framework root.
 - No `except: pass`; no bare `raise` — use custom exceptions.
 - No placeholder residue in output (TODO/待补充/TBD/FIXME); document changes must update the revision history.
@@ -118,6 +119,7 @@ P0 → stop immediately + explanation + fix suggestion; P1 → warn and fix; P2 
 
 | Date | Change |
 |------|--------|
+| 2026-11-13 | Extend backend Compose configuration after user approval, with fixed container names and reuse. |
 | 2026-10-16 | Require directly openable local HTML, add preview commands, and specify file-page verification and storage fallback. |
 | 2026-10-15 | Add project-level prototype paths, traceability, mock disclosure, and stage isolation. |
 

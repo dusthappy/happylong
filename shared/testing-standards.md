@@ -36,7 +36,7 @@ func TestCalcRetention(t *testing.T) {
 }
 ```
 
-- DB 相关测试跟随仓内既有 test 库/事务回滚方案；没有则优先可移植方案（sqlite 内存 或 dockertest，看仓库现状）。
+- DB 测试沿用仓内测试库和事务回滚方案；需要真实数据库时，按[Compose 编排确认与复用](compose-environment.md)在用户确认范围内使用固定测试环境。仅在不要求真实数据库语义时使用 SQLite 内存替身。已有明确隔离的容器测试夹具可按原设计运行，不将其临时容器当作开发依赖。
 - shared_be 子项目：`internal/server/example_http_test.go` 风格已有先例，新接口测试跟随。
 
 ## 4. 前端（vitest / playwright）
@@ -54,3 +54,9 @@ func TestCalcRetention(t *testing.T) {
 
 - `/hy-test` 的 smoke.md 是每迭代的验收证据（AC↔结果↔证据）。
 - 修复 bug 必须先有失败用例（或冒烟步骤），修复后复跑 + 回归相邻功能（见 `/hy-fix`）。
+
+## 修订历史
+
+| 日期 | 变更 |
+|------|------|
+| 2026-11-13 | 固定 Compose 测试依赖遵守用户确认门禁；与既有隔离夹具分别处理。 |

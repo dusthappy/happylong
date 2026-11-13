@@ -36,6 +36,7 @@ metadata:
 
 ### P1 hard constraints
 
+- Follow `shared/compose-environment.md` for long-lived local Docker dependencies. Use a fixed Compose configuration in the project backend and add only missing entries to existing configuration. Present a concrete plan and obtain explicit user approval before implementing unapproved configurations, changes, or actions. Reuse fixed container names and instances for the same unchanged environment within approval.
 - Prototype delivery must support double-clicking local `.html`/`.htm` without a server or build prerequisite; record actual `file://` verification before `ready`. When file-page storage is restricted, visibly fall back to current-page state and offer export, without automatically migrating old HTTP data.
 - Tool scripts always use `pathlib.Path`, anchored at the framework root by absolute path; never depend on cwd.
 - Resolve session context through `python3 happlylong.py session show`. Non-Codex agents must provide a stable, unique `HY_SESSION_ID` in the launch environment (or consistently pass the same leading `--session-id`) and keep it unchanged across context compaction. Fail closed without a trustworthy identity; never read or assume `.hy/session/current.yaml`.
@@ -100,6 +101,7 @@ Detect violation → grade it (P0/P1/P2)
 
 | Date | Change |
 |------|--------|
+| 2026-11-13 | Require backend Compose placement, additive changes, user approval, and fixed names and reuse. |
 | 2026-10-16 | Add local HTML direct-preview, file-page verification, and storage-fallback constraints. |
 | 2026-10-15 | Add project-level prototype paths, source traceability, and business-delivery boundaries. |
 
