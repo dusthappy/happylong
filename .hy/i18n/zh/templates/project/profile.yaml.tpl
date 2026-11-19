@@ -14,5 +14,8 @@ stack:
 # 字段: role(frontend|backend|service|fullstack|lib) / target(绝对路径) / langs /
 #       desc(功能定位一句话) / shared(跨项目共享仓) / backend_apps(共享仓子项目) /
 #       pending(目标未就绪) / note(备注)
+# 可选 fullstack_paths 仅用于 role: fullstack，可手动登记前端和/或后端目录供看板读取。
+# 示例: fullstack_paths: {frontend: [apps/web], backend: [services/api]}
+# 每侧用非空列表，填写规范的仓库相对路径，使用 / 分隔，. 表示仓库根目录。
 # 活跃迭代不写入项目档案；每个代理会话独立记录在 .hy/session/bindings/。
 repos: {}

@@ -21,6 +21,7 @@ happlylong (**hy** for short) turns "a product-dev process with a PRD gate" into
 - **Multiple projects, one workspace**: manage both independent projects and related projects that share a backend or common codebase. Connect repositories through symlinks under `workspace/{project}/code_lib/`, without moving code or changing the original repository structure;
 - **Iterative development with a traceable history**: each requirement becomes a separate iteration, recording its PRD, interface contract, development plan and implementation notes, and test results under `workspace/{project}/iterations/{id}/` for later reference, continuation, and review;
 - **A product prototype across iterations**: demonstrate the complete product flow under each project’s `prototype/`, referencing source requirements and release plans while keeping prototype verification separate from business delivery;
+- **Workspace dashboard**: see the frontend and backend repositories, all iterations, and their stage states across every registered project in one HTML file. Refresh on demand and open offline.
 - **Separate sessions, parallel development**: each AI session explicitly binds to one iteration in one project. Different sessions can advance different projects or different iterations of the same project, with clearly scoped bindings and iteration artifacts. A new unbound session first asks whether to bind an existing iteration or create a new one;
 - **No PRD, no code changes**: every change to a business repo must first go through `/hy-req`, which closes the PRD and its acceptance criteria (AC) — only then may the agent touch code;
 - **Automatic multi-repo orchestration**: split frontend/backend repos, shared backend mounted by multiple projects — `/hy-dev` orders and routes repos by role automatically.
@@ -33,7 +34,7 @@ happlylong (**hy** for short) turns "a product-dev process with a PRD gate" into
 |-----------|---------|
 | **Single-track, lightweight** | One pipeline `req → dev → test`; PRD and contract close within the req stage. No multi-framework, multi-mode machinery |
 | **Zero platform mirroring** | Only `AGENTS.md` (the cross-platform open standard) and the `.hy/i18n/` bilingual language sources are maintained (`.agents/skills/` is an install artifact); no .cursor/.claude mirror directories or sync mechanisms |
-| **The CLI is the source of truth** | A single-file CLI, `happlylong.py`, manages skeletons, symlinks, prototypes, iterations, sessions, health checks, and language; all state lives in YAML files — no hidden database |
+| **The CLI is the source of truth** | A single-file CLI, `happlylong.py`, manages skeletons, symlinks, prototypes, the dashboard, iterations, sessions, health checks, and language; all state lives in YAML files — no hidden database |
 | **Three-stage state machine** | An iteration has exactly `prd → dev → smoke` plus a contract-closure field; artifacts are four flat files |
 
 ## Quick start
@@ -122,7 +123,7 @@ The PowerShell equivalent is `$env:HY_SESSION_ID = "claude:project-a:conversatio
 
 Context compaction does not alter the on-disk binding. As long as the ID remains unchanged across compaction, an agent restart that preserves the environment, or an agent handoff, it resolves to the same iteration. For a cross-agent handoff of one logical session, explicitly use the same `HY_SESSION_ID` on both sides and keep only one active writer at a time; genuinely concurrent sessions must use different IDs. Without a trustworthy ID, binding-dependent commands **fail closed** instead of falling back to a shared `current.yaml`, preventing silent cross-wiring.
 
-**Unbound-session entry gate**: when a new session first receives a `/hy-*` command or natural-language request that would advance requirements, development, fixing, rechecking, smoke testing, or iteration distillation, it checks the binding first. The entire stdout of `session show` is one YAML document. When unbound, it returns `active: false` plus a machine-readable `entry_gate` that declares the workspace root and required binding fields. The agent then lists valid iterations and enters an Ask-First loop in which you choose either an existing iteration or a new one. Invalid input produces no artifacts or code changes; the agent asks again. Once binding or creation succeeds, it resumes the original request. The sole exception is explicit `/hy-req --title`, which unambiguously means a new PRD and creates a new iteration as soon as the project is resolved. Pure Q&A, framework navigation/spec/role review, project or symlink onboarding, prototype scaffold initialization/inspection, diagnostics, framework-source maintenance and open-source/release preparation, and `/hy-knowledge bootstrap` are exempt from the business-iteration gate.
+**Unbound-session entry gate**: when a new session first receives a `/hy-*` command or natural-language request that would advance requirements, development, fixing, rechecking, smoke testing, or iteration distillation, it checks the binding first. The entire stdout of `session show` is one YAML document. When unbound, it returns `active: false` plus a machine-readable `entry_gate` that declares the workspace root and required binding fields. The agent then lists valid iterations and enters an Ask-First loop in which you choose either an existing iteration or a new one. Invalid input produces no artifacts or code changes; the agent asks again. Once binding or creation succeeds, it resumes the original request. The sole exception is explicit `/hy-req --title`, which unambiguously means a new PRD and creates a new iteration as soon as the project is resolved. Pure Q&A, framework navigation/spec/role review, project or symlink onboarding, prototype scaffold initialization/inspection, the workspace dashboard, diagnostics, framework-source maintenance and open-source/release preparation, and `/hy-knowledge bootstrap` are exempt from the business-iteration gate.
 
 ## Skills (all hy- prefixed)
 
@@ -138,6 +139,7 @@ Context compaction does not alter the on-disk binding. As long as the ID remains
 | `/hy-test` | Smoke execution (AC↔result↔evidence table; fail flows back to /hy-fix) |
 | `/hy-knowledge` | Knowledge-base bootstrap cold start + iteration change distillation |
 | `/hy-project` | Project registration, three symlink modes, prototype directories, pending links, doctor check |
+| `/hy-dashboard` | Create or refresh the workspace dashboard with projects, repositories, and iteration statuses |
 
 ## shared: cross-project standards
 
@@ -168,6 +170,33 @@ python3 happlylong.py link apply myapp          # one-shot linking once the dir 
 ```
 
 Full details: the `/hy-project` Skill and the sample at [examples/example/](examples/example/).
+
+## Workspace dashboard
+
+Send `/hy-dashboard` in your AI conversation to create or refresh `workspace/dashboard.html`. It lists every registered project, repository roles including frontend and backend, and all iterations with their PRD, development, smoke, contract, and closure states. Search projects, repositories, and iterations, and filter by overall iteration status. The first run creates the file. Later runs update the same path. Double-click the HTML to view it offline. Generating and viewing the snapshot requires neither a server nor an iteration binding. Git ignores the generated HTML along with the rest of `workspace/`.
+
+To show frontend and backend directories within a full stack repository, add `fullstack_paths` to the existing `role: fullstack` repository entry in `workspace/{project}/profile.yaml`.
+
+```yaml
+repos:
+  example:
+    role: fullstack
+    target: /abs/path/example
+    fullstack_paths:
+      frontend: [apps/web, apps/admin]
+      backend: [services/api]
+```
+
+Specify `frontend`, `backend`, or both, using a nonempty list for each side you provide. Use normalized paths relative to the repository root, with `/` as the separator and `.` for the root itself. The dashboard reads these directories from the project profile when refreshed, without scanning the repository.
+
+The same operation is available from the terminal.
+
+```bash
+python3 happlylong.py dashboard
+python3 happlylong.py dashboard --open
+```
+
+For an existing installation, run `python3 happlylong.py lang en` to install the updated skill.
 
 ## Product prototype: an interactive view across iterations
 
@@ -200,7 +229,7 @@ AGENTS.md / CLAUDE.md  Agent spec and Claude Code entry (local install artifacts
 shared/               Cross-project standards (coding/security/testing/Git + TS/Go/Rust)
 examples/example/     Sanitized sample project
 .github/              Issue/PR templates, CI, and Dependabot configuration
-workspace/            Business-project area (local only, whole dir never committed): _index.yaml + {project}/ (profile + code_lib/ symlinks + knowledge/ + prototype/ + iterations/)
+workspace/            Business-project area (local only, whole dir never committed): _index.yaml + dashboard.html + {project}/ (profile + code_lib/ symlinks + knowledge/ + prototype/ + iterations/)
 ```
 
 ## FAQ
@@ -223,6 +252,8 @@ Issues and PRs are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first: contr
 
 | Date | Change |
 |------|--------|
+| 2026-11-19 | Document how to register frontend and backend directories for full stack repositories and view them on the dashboard. |
+| 2026-11-18 | Add `/hy-dashboard` to create or refresh a single local HTML snapshot. |
 | 2026-11-06 | Link optional Feishu CLI/local-image guidance through existing iteration attachments and skills. |
 | 2026-10-16 | Switch prototypes to directly openable local HTML; add preview commands, compatible metadata, and file-page verification rules. |
 | 2026-10-15 | Add project-level prototype directories, CLI usage, source traceability, delivery boundaries, and legacy-project compatibility. |

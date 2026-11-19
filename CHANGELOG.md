@@ -12,6 +12,14 @@
 
 ### Added
 
+- 2026-11-19 · **全栈目录 / Full stack directories**
+  - 中文：看板展示同仓的前后端分工。需要细化目录时，在项目 `profile.yaml` 的仓库登记项中配置可选的 `fullstack_paths.frontend` 或 `fullstack_paths.backend`，也可以配置两侧，刷新后即可查看。使用仓库相对路径，`.` 代表仓库根目录。
+  - English: The dashboard shows which repositories serve both frontend and backend. To show the directories for either side, set `fullstack_paths.frontend` and/or `fullstack_paths.backend` in the repository's project profile entry, then refresh. Paths are relative to the repository root. Use `.` for the root itself.
+
+- 2026-11-18 · **全局项目看板 / Workspace dashboard**
+  - 中文：运行 `/hy-dashboard` 或 `python3 happlylong.py dashboard`，查看所有已登记项目的仓库角色、迭代与 PRD、契约、开发、冒烟及关闭状态。支持搜索和按迭代状态筛选。每次运行更新同一份本地 `workspace/dashboard.html`，加 `--open` 可在默认浏览器打开。看板可离线使用，无需服务或会话绑定，生成的业务快照不入库。
+  - English: Run `/hy-dashboard` or `python3 happlylong.py dashboard` to see every registered project's repository roles and iterations, including PRD, contract, development, smoke test, and closure states. Search across projects and filter by iteration status. Each run updates the same local file, `workspace/dashboard.html`. Add `--open` to open it in the default browser. The dashboard works offline without a server or iteration binding, and the generated workspace snapshot stays out of Git.
+
 - 2026-11-06：新增双语 `shared/feishu-cli.md`，独立整理 CLI 接入、按来源下载图片、缺图核对与本地验收经验；双语 hy-req 按需引用并沿用迭代 `attach/`，不新增技能体系或运行依赖，不迁入来源工程的账号、组织、任务、项目或图片数据。
 
 - 2026-10-16：新增 `prototype preview {project} [--open]`，返回本地 HTML 入口或通过系统默认浏览器打开文件 URI，不启动服务；`show` 增加 `preview_mode` 与 `entry_uri`，schema 1 旧清单省略模式时兼容为 `file`，入口限制为 `.html`/`.htm`。

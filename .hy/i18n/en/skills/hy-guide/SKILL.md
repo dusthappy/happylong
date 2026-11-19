@@ -25,7 +25,7 @@ metadata:
 - **Product prototype**: `workspace/{project}/prototype/` demonstrates complete flows across iterations, tracing versions through source iterations and coverage. Prototype `ready` does not pass business ACs or complete stages.
 - **State machine SSOT**: `workspace/{project}/iterations/{id}/_index.yaml → stages` (prd/dev/smoke; contract closure recorded in the separate `contract` field).
 - **Session**: every agent session owns one atomically written binding file at `.hy/session/bindings/{hash}.yaml`; omitted command arguments are filled only from the current session. Both active and previous records must explicitly carry `project`, `iteration_id`, and the canonical `iteration_path`, uniquely pointing to `workspace/{project}/iterations/{iteration_id}`. Identity precedence is a leading `--session-id` → `HY_SESSION_ID` → `CODEX_THREAD_ID`. Every entry point maps the same ID to the same digest, and the raw ID is never persisted. Without a trustworthy ID or a consistent workspace scope, commands fail closed and never fall back to the shared `.hy/session/current.yaml`.
-- **Unbound entry**: an execution-oriented `/hy-*` or natural-language request starts with `session show`; if unbound, run `iter list` and enter an Ask-First loop in which the user chooses either an existing iteration or a new one. Only explicit `/hy-req --title` is a definite new-PRD signal and may create directly after resolving the project. Framework-source maintenance, diagnostics, and open-source/release preparation are not business iterations and do not trigger this gate.
+- **Unbound entry**: an execution-oriented `/hy-*` or natural-language request starts with `session show`; if unbound, run `iter list` and enter an Ask-First loop in which the user chooses either an existing iteration or a new one. Only explicit `/hy-req --title` is a definite new-PRD signal and may create directly after resolving the project. The workspace dashboard, framework-source maintenance, diagnostics, and open-source/release preparation are exempt from this gate.
 
 ## Command quick reference
 
@@ -38,10 +38,11 @@ metadata:
 | `/hy-test` | Smoke: ACs → checklist → `smoke.md` four-column table | fail auto-routes to `/hy-fix` |
 | `/hy-knowledge` | Knowledge base: bootstrap builds from source code / iteration distills changes | no args auto-routes |
 | `/hy-project` | New project / three symlink modes / prototype directory / pending linking | drives `happlylong.py project\|link\|prototype` |
+| `/hy-dashboard` | Refresh the workspace dashboard with projects, repositories, and iteration statuses | runs `happlylong.py dashboard [--open]` |
 | `/hy-spec` | Meta-spec (constraints + lifecycle + quality) | — |
 | `/hy-roles` | Role-chain personas (PM clarification / architecture gating / implementation guard), review only | summon per perspective; artifacts land via /hy-req, /hy-dev |
 
-Tool-side commands (`python3 happlylong.py [--session-id ID] …`): `--session-id` is the explicit cross-agent identity and must precede the subcommand. Subcommands are `init [--lang zh|en] / lang [zh|en] / release-check / status / doctor --fix / project new / prototype init|show|preview / link add|rm|apply|list / iter new|list|show|close / knowledge init|register|status / session show|set|back|clear`.
+Tool-side commands (`python3 happlylong.py [--session-id ID] …`): `--session-id` is the explicit cross-agent identity and must precede the subcommand. Subcommands are `init [--lang zh|en] / lang [zh|en] / release-check / status / dashboard [--open] / doctor --fix / project new / prototype init|show|preview / link add|rm|apply|list / iter new|list|show|close / knowledge init|register|status / session show|set|back|clear`.
 
 ## Navigate by scenario
 
@@ -57,6 +58,7 @@ Tool-side commands (`python3 happlylong.py [--session-id ID] …`): `--session-i
 | Run multiple agents or sessions concurrently | Codex isolates them automatically through `CODEX_THREAD_ID`. For every other agent, set a stable, unique `HY_SESSION_ID` in each session's launch environment, keep it unchanged across compaction, and then run `session set` or `/hy-req`; reuse an ID only for a serial handoff of the same logical session, never for concurrent writers |
 | Onboard a new project | `/hy-project` (three modes: single repo / FE+BE / shared backend + subproject) |
 | Build or inspect a product prototype | `prototype init {project}` → build from explicit roadmap/PRD/coverage → `prototype show {project}` → double-click the HTML or run `prototype preview {project} --open`; start no server, verify file-page interactions, disclose mocks, and keep business stages independent |
+| See all projects and iteration progress | `/hy-dashboard` → open `workspace/dashboard.html`. Rerun the skill to refresh the snapshot. |
 | Build project knowledge after onboarding | `/hy-knowledge bootstrap --project X` (builds overview/api/data from source code) |
 | Distill after an iteration | `/hy-knowledge iteration` (pass the entry gate if unbound; changelog entries + api/data deltas) |
 | Directory or symlink suspicious | `python3 happlylong.py doctor --fix` |
@@ -82,7 +84,7 @@ Tool-side commands (`python3 happlylong.py [--session-id ID] …`): `--session-i
 
 | Date | Change |
 |------|--------|
-| 2026-10-16 | Route prototype preview to directly openable local HTML and add the preview command. |
+| 2026-11-18 | Add `/hy-dashboard` to create or refresh a single local HTML snapshot. |
 | 2026-10-15 | Add project-level prototype paths, source traceability, and business-delivery boundaries. |
 
 ## [Next Steps]

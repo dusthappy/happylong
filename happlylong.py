@@ -11,7 +11,7 @@
   python3 happlylong.py [--session-id ID] <command> [args]
   常用：init [--lang zh|en] / lang [zh|en] / status / doctor / project new /
         link add|rm|apply|list / prototype init|show|preview /
-        iter new|list|show|close / session show|set|back|clear
+        iter new|list|show|close / session show|set|back|clear / dashboard [--open]
 """
 
 from __future__ import annotations
@@ -24,11 +24,13 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import uuid
 import webbrowser
 from collections.abc import Mapping
 from contextlib import contextmanager
 from datetime import datetime
+from html import escape as escape_html
 from pathlib import Path
 from string import Template
 from typing import Any
@@ -79,6 +81,7 @@ LANGUAGES = ("zh", "en")
 
 ITER_TYPES = ("feat", "fix", "refactor", "doc", "chore")
 REPO_ROLES = ("frontend", "backend", "service", "fullstack", "lib")
+FULLSTACK_PATH_ROLES = ("frontend", "backend")
 STAGES = ("prd", "dev", "smoke")  # contract 为 _index.yaml 独立字段（/hy-req 内闭合）
 PROTOTYPE_STATUSES = ("planned", "draft", "ready")
 
@@ -106,7 +109,14 @@ class MissingSessionIdentityError(HyError):
 # 中文模板为键、英文为值；{} 为位置占位符，顺序与调用点一致。未收录的模板回退中文。
 
 UI_EN: dict[str, str] = {
+    "生成或刷新全局项目看板（本地 HTML）": "generate or refresh the workspace dashboard (local HTML)",
+    "看板已刷新: {}": "dashboard refreshed: {}",
+    "已展示 {} 个项目、{} 条迭代，数据提醒 {} 条": "showing {} projects and {} iterations, with {} data notices",
     "拒绝不安全的框架路径: {}": "unsafe framework path rejected: {}",
+    "无法读取项目档案: {}": "Could not read project profile: {}",
+    "无法读取迭代目录: {}": "Could not read iteration directory: {}",
+    "缺少或无法读取迭代元数据: {}": "Iteration metadata is missing or unreadable: {}",
+    "迭代状态缺少或无效: {} ({})": "Iteration statuses are missing or invalid: {} ({})",
     "配置必须是 YAML 对象: {}": "configuration must be a YAML object: {}",
     "配置字段无效: {} ({})": "invalid configuration field: {} ({})",
     "操作失败，恢复记录见 {}: {}": "operation failed; recovery snapshot: {}: {}",
@@ -786,6 +796,11 @@ def read_profile(project: str) -> dict[str, Any]:
             raise HyError(ui("配置字段无效: {} ({})", profile_path(project), f"{name}.langs"))
         if "desc" in entry and (not isinstance(entry["desc"], str) or not entry["desc"].strip()):
             raise HyError(ui("配置字段无效: {} ({})", profile_path(project), f"{name}.desc"))
+        if "fullstack_paths" in entry:
+            field = f"{name}.fullstack_paths"
+            if entry["role"] != "fullstack":
+                raise HyError(ui("配置字段无效: {} ({})", profile_path(project), field))
+            validate_fullstack_paths(entry["fullstack_paths"], profile_path(project), field)
         if "backend_apps" in entry:
             apps = yaml_object(entry["backend_apps"], f"{name}.backend_apps")
             if entry["role"] not in ("backend", "service"):
@@ -1141,6 +1156,24 @@ def cmd_prototype_preview(args: argparse.Namespace) -> int:
 
 # ---------------------------------------------------------------- link
 
+def is_repo_relative_dir(value: Any) -> bool:
+    if not isinstance(value, str) or not value.isprintable() or value != value.strip():
+        return False
+    return value == "." or (
+        ":" not in value and "\\" not in value
+        and all(part not in ("", ".", "..") for part in value.split("/"))
+    )
+
+
+def validate_fullstack_paths(value: Any, source: Path, field: str) -> None:
+    directory_map = yaml_object(value, f"{source}: {field}")
+    if not directory_map or any(side not in FULLSTACK_PATH_ROLES for side in directory_map):
+        raise HyError(ui("配置字段无效: {} ({})", source, field))
+    for side, paths in directory_map.items():
+        if not isinstance(paths, list) or not paths or not all(map(is_repo_relative_dir, paths)):
+            raise HyError(ui("配置字段无效: {} ({})", source, f"{field}.{side}"))
+
+
 def validate_app_paths(name: Any, paths: Any) -> None:
     if not isinstance(name, str) or not REPO_NAME_PATTERN.fullmatch(name) \
             or not isinstance(paths, list) or not paths:
@@ -1226,6 +1259,9 @@ def cmd_link_add(args: argparse.Namespace) -> int:
         entry["desc"] = args.desc
     if args.note:
         entry["note"] = args.note
+    previous = repos.get(args.repo, {})
+    if args.role == "fullstack" and previous.get("target") == entry["target"] and "fullstack_paths" in previous:
+        entry["fullstack_paths"] = previous["fullstack_paths"]
     repos[args.repo] = entry
     profile["updated"] = local_timestamp()
     registry = prepare_repo_registry(args.project, list(repos))
@@ -1487,6 +1523,104 @@ def cmd_iter_close(args: argparse.Namespace) -> int:
     if session.get("active") and session.get("project") == project and session.get("iteration_id") == iter_id:
         info(ui("当前会话指向已关闭迭代: happlylong.py session back 返回上一绑定，或 iter list 另选"))
     return 0
+
+
+# ---------------------------------------------------------------- dashboard data
+
+DASHBOARD_ITERATION_STATES = {
+    "status": ("open", "done", "abandoned"),
+    "prd": ("pending", "done"),
+    "contract": ("pending", "done", "skipped"),
+    "dev": ("pending", "in_progress", "done"),
+    "smoke": ("pending", "pass", "fail"),
+}
+
+
+def dashboard_title(value: Any, fallback: str) -> str:
+    return value.strip() if isinstance(value, str) and value.strip() else fallback
+
+
+def dashboard_iteration(directory: Path, issues: list[str]) -> dict[str, Any]:
+    source = (directory / "_index.yaml").relative_to(ROOT).as_posix()
+    try:
+        meta = read_iteration_meta(directory) or {}
+    except (HyError, OSError):
+        meta = {}
+    if not meta:
+        issues.append(ui("缺少或无法读取迭代元数据: {}", source))
+
+    stages = meta.get("stages", {})
+    states = {"status": meta.get("status"), "contract": meta.get("contract")}
+    states.update({stage: stages.get(stage) for stage in STAGES})
+    invalid = [field for field, value in states.items() if value not in DASHBOARD_ITERATION_STATES[field]]
+    for field in invalid:
+        states[field] = None
+    if meta and invalid:
+        issues.append(ui("迭代状态缺少或无效: {} ({})", source, ", ".join(invalid)))
+    return {
+        "id": directory.name,
+        "title": dashboard_title(meta.get("title"), directory.name),
+        "status": states["status"],
+        "stages": {stage: states[stage] for stage in STAGES},
+        "contract": states["contract"],
+    }
+
+
+def dashboard_project_iterations(project: str, issues: list[str]) -> list[dict[str, Any]]:
+    root = WORKSPACE_ROOT / project / "iterations"
+    try:
+        checked_path(root)
+        paths = sorted(root.iterdir(), reverse=True) if root.exists() else []
+    except (HyError, OSError):
+        issues.append(ui("无法读取迭代目录: {}", root.relative_to(ROOT).as_posix()))
+        return []
+    return [
+        dashboard_iteration(path, issues)
+        for path in paths
+        if ITER_ID_PATTERN.fullmatch(path.name) and (path.is_symlink() or path.is_dir())
+    ]
+
+
+def dashboard_repos(profile: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        {
+            "id": repo,
+            "role": entry["role"],
+            "langs": entry.get("langs", []),
+            "desc": entry.get("desc", ""),
+            "shared": entry.get("shared", False),
+            "pending": entry.get("pending", False),
+            "fullstack_paths": entry.get("fullstack_paths", {}),
+            "backend_apps": [
+                {"id": app, "title": dashboard_title(settings.get("title"), app)}
+                for app, settings in entry.get("backend_apps", {}).items()
+            ],
+        }
+        for repo, entry in profile.get("repos", {}).items()
+    ]
+
+
+def collect_dashboard_projects() -> tuple[list[dict[str, Any]], list[str]]:
+    """Read dashboard fields only, without traversing repository links or session state."""
+    registry = read_workspace_registry().get("projects", {})
+    projects: list[dict[str, Any]] = []
+    issues: list[str] = []
+    for name, entry in sorted(registry.items(), key=lambda pair: pair[0].casefold()):
+        try:
+            profile = read_profile(name)
+        except (HyError, OSError):
+            profile = {}
+            source = (WORKSPACE_ROOT / name / "profile.yaml").relative_to(ROOT).as_posix()
+            issues.append(ui("无法读取项目档案: {}", source))
+        title = dashboard_title(entry.get("title"), name)
+        projects.append({
+            "id": name,
+            "title": dashboard_title(profile.get("title"), title),
+            "repos": dashboard_repos(profile),
+            "iterations": dashboard_project_iterations(name, issues),
+            "profile_available": bool(profile),
+        })
+    return projects, issues
 
 
 # ---------------------------------------------------------------- session
@@ -1905,14 +2039,14 @@ WIN_HOME_MARK = "C:" + "\\" + "Users" + "\\"
 PLACEHOLDER_MARK = "TO" + "DO|\u5f85\u8865\u5145|TB" + "D|FIX" + "ME|XX" + "X"
 OWNER_PLACEHOLDER_MARK = "<" + "user>"
 EXPECTED_SKILL_NAMES = frozenset({
-    "hy-dev", "hy-fix", "hy-guide", "hy-knowledge", "hy-project",
+    "hy-dashboard", "hy-dev", "hy-fix", "hy-guide", "hy-knowledge", "hy-project",
     "hy-req", "hy-review", "hy-roles", "hy-spec", "hy-test",
 })
 RELEASE_FALLBACK_DIRS = ("shared", "examples", "tests", ".github", ".hy/i18n")
 RELEASE_ROOT_FILES = (
     "happlylong.py", "happlylong.bat", "README.md", "README.en.md", "CONTRIBUTING.md",
     "CODE_OF_CONDUCT.md", "SECURITY.md", "CHANGELOG.md", "LICENSE", "requirements.txt",
-    ".gitignore", ".gitattributes", ".hy/config.yaml", ".hy/opensource.md",
+    ".gitignore", ".gitattributes", ".hy/config.yaml", ".hy/opensource.md", ".hy/dashboard.html.tpl",
 )
 # 凭据扫描模式：ghp_/gho_/ghu_/ghs_/ghr_ 经典 PAT + github_pat_ 细粒度 PAT 前缀
 CREDENTIAL_PATTERNS = (
@@ -2156,7 +2290,7 @@ def cmd_release_check(_args: argparse.Namespace) -> int:
             continue
         if re.search(PLACEHOLDER_MARK, text):
             problems.append(ui("占位符残留: {}", rel))
-    # 5) frontmatter：双语 skills + AGENTS 源须完整、同名且共 22 份
+    # 5) frontmatter：双语 skills 名单一致，各自与 AGENTS 源一同校验
     fm_targets: list[Path] = []
     for lang in LANGUAGES:
         skill_root = I18N_DIR / lang / "skills"
@@ -2319,6 +2453,213 @@ def cmd_release_check(_args: argparse.Namespace) -> int:
     return 0
 
 
+# ---------------------------------------------------------------- dashboard
+
+DASHBOARD_COPY = {
+    "title": ("项目看板", "Project dashboard"),
+    "updated": ("更新于", "Updated"),
+    "projects_label": ("项目", "Projects"),
+    "iterations_label": ("迭代", "Iterations"),
+    "open_label": ("未关闭", "Open"),
+    "done_label": ("已关闭", "Closed"),
+    "navigation": ("项目目录", "Project directory"),
+    "search": ("搜索", "Search"),
+    "search_hint": ("项目、仓库、迭代标题或 ID", "Project, repo, iteration title or ID"),
+    "status": ("迭代状态", "Iteration status"),
+    "all_statuses": ("全部状态", "All statuses"),
+    "reset": ("清除筛选", "Clear filters"),
+    "no_results": ("没有符合条件的项目或迭代。", "No projects or iterations match the filters."),
+    "no_projects": ("工作区还没有登记项目。", "No projects are registered in this workspace."),
+    "no_iterations": ("还没有迭代。", "No iterations yet."),
+    "missing_profile": ("项目档案无法读取。", "The project profile could not be read."),
+    "no_repo": ("未登记", "None registered"),
+    "frontend": ("前端", "Frontend"),
+    "backend": ("后端", "Backend"),
+    "service": ("服务层", "Service"),
+    "fullstack": ("前后端同仓", "Full stack (frontend and backend)"),
+    "frontend_dirs": ("前端目录", "Frontend directories"),
+    "backend_dirs": ("后端目录", "Backend directories"),
+    "no_directory": ("目录未登记", "Directory not registered"),
+    "lib": ("库", "Libraries"),
+    "shared": ("共享", "Shared"),
+    "pending_link": ("待补链", "Link pending"),
+    "apps": ("子项目", "Apps"),
+    "prd": ("PRD", "PRD"),
+    "contract": ("契约", "Contract"),
+    "dev": ("开发", "Development"),
+    "smoke": ("冒烟", "Smoke"),
+    "notices": ("数据提醒", "Data notices"),
+    "refresh": ("刷新此快照", "Refresh this snapshot"),
+    "scroll": ("横向滑动查看全部阶段", "Scroll across to view every stage"),
+}
+
+DASHBOARD_STATES = {
+    None: ("未记录", "Unrecorded", "neutral"),
+    "open": ("未关闭", "Open", "active"),
+    "done": ("已完成", "Done", "success"),
+    "closed": ("已关闭", "Closed", "success"),
+    "abandoned": ("已放弃", "Abandoned", "neutral"),
+    "pending": ("待开始", "Pending", "neutral"),
+    "in_progress": ("进行中", "In progress", "active"),
+    "skipped": ("已跳过", "Skipped", "neutral"),
+    "pass": ("通过", "Passed", "success"),
+    "fail": ("失败", "Failed", "danger"),
+}
+
+
+def dashboard_state(value: str | None, language: int, *, overall: bool = False) -> tuple[str, str]:
+    if overall and value == "done":
+        value = "closed"
+    labels = DASHBOARD_STATES.get(value)
+    return (labels[language], labels[2]) if labels else (str(value), "neutral")
+
+
+def dashboard_badge(value: str | None, language: int, *, overall: bool = False) -> str:
+    label, tone = dashboard_state(value, language, overall=overall)
+    return f'<span class="badge {tone}" data-value="{escape_html(value or "")}">{escape_html(label)}</span>'
+
+
+def render_dashboard_fullstack_paths(directories: dict[str, list[str]], copy: dict[str, str]) -> str:
+    rows = []
+    for side in FULLSTACK_PATH_ROLES:
+        paths = " ".join(f'<code>{escape_html(path)}</code>' for path in dict.fromkeys(directories.get(side, [])))
+        label = copy[f"{side}_dirs"]
+        rows.append(f'<div><dt>{label}</dt><dd>{paths or copy["no_directory"]}</dd></div>')
+    return f'<dl class="repo-paths">{" ".join(rows)}</dl>'
+
+
+def render_dashboard_repos(project: dict[str, Any], copy: dict[str, str]) -> str:
+    if not project["profile_available"]:
+        return f'<p class="note">{copy["missing_profile"]}</p>'
+    repos = project["repos"]
+    has_fullstack = any(repo["role"] == "fullstack" for repo in repos)
+    groups = (("frontend", ("frontend",)), ("backend", ("backend", "service")),
+              ("fullstack", ("fullstack",)), ("lib", ("lib",)))
+    columns = []
+    for group, roles in groups:
+        items = []
+        for repo in repos:
+            if repo["role"] not in roles:
+                continue
+            tags = []
+            if repo["role"] != group:
+                tags.append(copy[repo["role"]])
+            if repo["shared"]:
+                tags.append(copy["shared"])
+            if repo["pending"]:
+                tags.append(copy["pending_link"])
+            tags.extend(escape_html(lang) for lang in repo["langs"])
+            tag_markup = "".join(f'<span class="repo-tag">{tag}</span>' for tag in tags)
+            details = []
+            if repo["role"] == "fullstack":
+                details.append(render_dashboard_fullstack_paths(repo["fullstack_paths"], copy))
+            if repo["desc"]:
+                details.append(f'<p>{escape_html(repo["desc"])}</p>')
+            if repo["backend_apps"]:
+                apps = " · ".join(escape_html(app["title"] or app["id"]) for app in repo["backend_apps"])
+                details.append(f'<p>{copy["apps"]} · {apps}</p>')
+            items.append(f'<li><code>{escape_html(repo["id"])}</code>{tag_markup}{"".join(details)}</li>')
+        if not items and (has_fullstack or group in ("fullstack", "lib")):
+            continue
+        contents = f'<ul>{"".join(items)}</ul>' if items else f'<p class="note">{copy["no_repo"]}</p>'
+        columns.append(f'<div><h3>{copy[group]}</h3>{contents}</div>')
+    return f'<div class="repo-grid">{"".join(columns)}</div>'
+
+
+def render_dashboard_iterations(project: dict[str, Any], copy: dict[str, str], language: int) -> str:
+    if not project["iterations"]:
+        return f'<p class="note iterations-empty">{copy["no_iterations"]}</p>'
+    columns = ("iterations_label", "status", "prd", "contract", "dev", "smoke")
+    headings = "".join(f'<th scope="col">{copy[key]}</th>' for key in columns)
+    rows = []
+    for iteration in project["iterations"]:
+        iteration_id = escape_html(iteration["id"])
+        title = escape_html(iteration["title"] or iteration["id"])
+        subtitle = f'<code>{iteration_id}</code>' if title != iteration_id else ""
+        status = dashboard_badge(iteration["status"], language, overall=True)
+        states = (iteration["stages"]["prd"], iteration["contract"],
+                  iteration["stages"]["dev"], iteration["stages"]["smoke"])
+        stages = "".join(f'<td>{dashboard_badge(state, language)}</td>' for state in states)
+        rows.append(f'<tr><th scope="row"><strong>{title}</strong>{subtitle}</th>'
+                    f'<td class="overall">{status}</td>{stages}</tr>')
+    return (f'<p class="table-hint">{copy["scroll"]}</p>'
+            f'<div class="table-scroll" tabindex="0" role="region" aria-label="{copy["iterations_label"]}">'
+            f'<table><thead><tr>{headings}</tr></thead><tbody>{"".join(rows)}</tbody></table></div>')
+
+
+def render_dashboard(projects: list[dict[str, Any]], issues: list[str], template: Template) -> str:
+    lang = resolve_language()
+    language = int(lang == "en")
+    copy = {key: escape_html(values[language]) for key, values in DASHBOARD_COPY.items()}
+    seen_statuses: dict[str | None, int] = {}
+    sections, navigation = [], []
+    for project in projects:
+        project_id = escape_html(project["id"])
+        title = escape_html(project["title"] or project["id"])
+        anchor = f"project-{project_id}"
+        count = len(project["iterations"])
+        for iteration in project["iterations"]:
+            status = iteration["status"]
+            seen_statuses[status] = seen_statuses.get(status, 0) + 1
+        subtitle = f'<code>{project_id}</code>' if title != project_id else ""
+        navigation.append(f'<li><a href="#{anchor}"><span>{title}</span><small>{count}</small></a></li>')
+        sections.append(f'<section class="project" id="{anchor}" aria-labelledby="title-{project_id}">'
+                        f'<header><h2 id="title-{project_id}">{title}</h2>{subtitle}</header>'
+                        f'{render_dashboard_repos(project, copy)}'
+                        f'{render_dashboard_iterations(project, copy, language)}</section>')
+    status_options = []
+    for status, count in sorted(seen_statuses.items(), key=lambda item: (item[0] is None, item[0] or "")):
+        label, _ = dashboard_state(status, language, overall=True)
+        # A separate all-status value keeps missing statuses filterable.
+        status_options.append(f'<option value="status:{escape_html(status or "")}">'
+                              f'{escape_html(label)} ({count})</option>')
+    notices = ""
+    if issues:
+        issue_list = "".join(f'<li>{escape_html(issue)}</li>' for issue in issues)
+        notices = (f'<details class="notices"><summary>{copy["notices"]} ({len(issues)})</summary>'
+                   f'<ul>{issue_list}</ul></details>')
+    generated_at = datetime.now().astimezone()
+    return template.substitute(
+        **copy, lang=lang, generated_at=generated_at.isoformat(timespec="seconds"),
+        generated_label=escape_html(generated_at.strftime("%Y-%m-%d %H:%M %z")),
+        project_count=len(projects), iteration_count=sum(seen_statuses.values()),
+        open_count=seen_statuses.get("open", 0), done_count=seen_statuses.get("done", 0),
+        project_links="".join(navigation), project_sections="".join(sections) or f'<p class="note">{copy["no_projects"]}</p>',
+        status_options="".join(status_options), notices_markup=notices,
+    )
+
+
+def cmd_dashboard(args: argparse.Namespace) -> int:
+    projects, issues = collect_dashboard_projects()
+    template_path = checked_path(HY_DIR / "dashboard.html.tpl")
+    template = Template(template_path.read_text(encoding="utf-8"))
+    snapshot = render_dashboard(projects, issues, template)
+    output = checked_path(WORKSPACE_ROOT / "dashboard.html")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    # Write privately, then replace at the same path so an interrupted refresh leaves a usable snapshot.
+    draft = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=output.parent,
+                                         prefix=".dashboard-", suffix=".tmp", delete=False) as stream:
+            draft = Path(stream.name)
+            stream.write(snapshot)
+        draft.replace(output)
+    finally:
+        if draft is not None:
+            draft.unlink(missing_ok=True)
+    info(ui("看板已刷新: {}", output))
+    info(ui("已展示 {} 个项目、{} 条迭代，数据提醒 {} 条",
+            len(projects), sum(len(project["iterations"]) for project in projects), len(issues)))
+    if args.open:
+        try:
+            accepted = webbrowser.open(output.as_uri(), new=2)
+        except (webbrowser.Error, OSError) as exc:
+            raise HyError(ui("调用浏览器失败: {}；请手动打开: {}", exc, output.as_uri())) from exc
+        if not accepted:
+            raise HyError(ui("浏览器未接受打开请求，请手动打开: {}", output.as_uri()))
+    return 0
+
+
 def cmd_status(_args: argparse.Namespace) -> int:
     index = read_workspace_registry()
     print("== happlylong status ==")
@@ -2386,6 +2727,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_ppreview.add_argument("project")
     p_ppreview.add_argument("--open", action="store_true", help=ui("用默认浏览器打开本地 HTML（不启动服务）"))
     p_ppreview.set_defaults(func=cmd_prototype_preview)
+
+    p_dashboard = sub.add_parser("dashboard", help=ui("生成或刷新全局项目看板（本地 HTML）"))
+    p_dashboard.add_argument("--open", action="store_true", help=ui("用默认浏览器打开本地 HTML（不启动服务）"))
+    p_dashboard.set_defaults(func=cmd_dashboard)
 
     p_link = sub.add_parser("link", help=ui("代码库软链管理"))
     link_sub = p_link.add_subparsers(dest="action", required=True)

@@ -5,7 +5,7 @@ alwaysApply: true
 
 # happlylong 代理行为规范
 
-> **版本**: 0.1.2 | **更新**: 2026-11-13
+> **版本**: 0.1.2 | **更新**: 2026-11-18
 > happlylong（缩写 **hy**）是服务于 `workspace/` 下多个个人项目的产研工作台。
 > 设计基调：**单轨轻链路、零平台镜像、工具即真相**。
 
@@ -15,7 +15,7 @@ alwaysApply: true
 
 ```
 happlylong/                     ← 框架根（本文件所在目录）
-├── happlylong.py / .bat        ← 唯一工具：骨架/软链/原型/迭代/会话/体检/语言
+├── happlylong.py / .bat        ← 唯一工具：骨架/软链/原型/看板/迭代/会话/体检/语言
 ├── CLAUDE.md                   ← Claude Code 接入口（@AGENTS.md 引用，安装产物）
 ├── .agents/skills/hy-*/        ← 已安装技能（当前语言集，安装产物）
 ├── .hy/                        ← 配置、会话、模板、语言源
@@ -28,6 +28,7 @@ happlylong/                     ← 框架根（本文件所在目录）
 ├── shared/                     ← 跨项目通用规范（通用/TS/Go/Rust/安全/测试/Git，随仓库发布）
 └── workspace/                  ← 本机业务区（含个人内容，整目录不入库）
     ├── _index.yaml             ← 项目注册表
+    ├── dashboard.html         ← 全局项目看板（按需生成，不入库）
     └── {project}/              ← 业务项目位
         ├── profile.yaml        ← 仓库登记（role/shared/backend_apps/desc/langs/pending）
         ├── code_lib/{repo} →   ← 真实代码库的软链（改动落码的地方）
@@ -48,6 +49,7 @@ happlylong/                     ← 框架根（本文件所在目录）
 | 导航 | `/hy-guide` | 框架地图与链路导航 |
 | 职责链 | `/hy-roles` | PM/架构师/开发者三人格合一（澄清/把关/守护），只评审不落盘 |
 | 项目/软链/原型 | `/hy-project` | 新项目登记、软链三模式、原型目录、pending 补链 |
+| 全局项目看板 | `/hy-dashboard` | 刷新所有项目的仓库分工、迭代与状态，直接打开单份 HTML |
 | 开迭代+PRD | `/hy-req --project X --title T` | 显式 `--title` 必定新建并绑定；无 title 时按会话状态续填/修订，未绑定则 Ask-First 绑定已有或创建新迭代 |
 | 开发 | `/hy-dev` | 四阶段状态机（契约兜底→计划→实现→自检）+ 仓间自动串联 |
 | 修复 | `/hy-fix` | 系统化缺陷修复（fix-*.md 留痕） |
@@ -57,7 +59,7 @@ happlylong/                     ← 框架根（本文件所在目录）
 
 **跨 Agent 会话隔离**：每个代理会话只绑定一个迭代，并且该绑定必须显式归属唯一的 `workspace/{project}`。active 与 previous 记录都必须包含 `project`、`iteration_id`、`iteration_path`，其中路径只能是 `workspace/{project}/iterations/{iteration_id}`；工具在读写边界 fail closed 校验，禁止只凭迭代 ID、最近记录或 cwd 推断 workspace。身份优先级为命令前置 `--session-id` → `HY_SESSION_ID` → 已知平台适配器 `CODEX_THREAD_ID`；所有入口对同一个原始 ID 计算相同的带命名空间 SHA-256 摘要，原始 ID 不落盘。其他 Agent 必须在会话启动环境注入稳定且唯一的 `HY_SESSION_ID`，并在上下文压缩、进程续跑期间保持不变；跨 Agent 交接同一逻辑会话时双方使用同一 ID，但同一时刻只允许一个写入者，真正并行必须使用不同 ID。执行 hy 命令前先 `session show` 核对 `session_scope.fingerprint`：与其他并行会话相同即已串线，必须立即换用独立 ID；任何具名共享 ID（如主会话线 ID）同一时刻只归一个会话使用，禁止第二个会话复用。支持 SessionStart hook 的平台（如 ZCode）应在工作台配置 hook，把 `${CLAUDE_SESSION_ID}` 经 additionalContext 注入为每会话唯一的 `--session-id hy-<CLAUDE_SESSION_ID>`，从供给侧避免共享 ID 串线。没有可信 ID 时绑定相关命令必须 fail closed，禁止读取或写入共享 `.hy/session/current.yaml`。
 
-**未绑定会话入口门禁（执行型请求）**：首次收到会推进需求、开发、修复、复检、冒烟或 iteration 沉淀的 `/hy-*` 或自然语言请求时，先运行 `python3 happlylong.py session show`。纯问答、`/hy-spec`、`/hy-guide`、`/hy-roles`、项目/软链接入、原型目录初始化/查看、框架诊断、框架源码维护与开源/发版准备，以及 `/hy-knowledge bootstrap` 不要求业务迭代绑定。稳定身份存在但结构化结果为 `active: false`（`entry_gate.policy: ask_first_bind_or_create`）时：
+**未绑定会话入口门禁（执行型请求）**：首次收到会推进需求、开发、修复、复检、冒烟或 iteration 沉淀的 `/hy-*` 或自然语言请求时，先运行 `python3 happlylong.py session show`。纯问答、`/hy-spec`、`/hy-guide`、`/hy-roles`、项目/软链接入、原型目录初始化/查看、全局项目看板、框架诊断、框架源码维护与开源/发版准备，以及 `/hy-knowledge bootstrap` 不要求业务迭代绑定。稳定身份存在但结构化结果为 `active: false`（`entry_gate.policy: ask_first_bind_or_create`）时：
 
 1. **仅 `/hy-req` 显式带 `--title` 例外**：它就是“新 PRD”信号，不询问绑定已有还是新建；补齐/确认 `project` 后立即创建并绑定新迭代。即使当前已有绑定，也必须新开迭代，旧绑定进入 `previous`。
 2. 其余执行型请求先运行 `iter list` 展示候选，再 Ask-First 让用户选择 **绑定已有迭代** 或 **创建新迭代**；优先使用宿主提供的结构化提问/选择 UI，无此能力时用等价的明确问题。可基于原始意图标推荐项，但禁止代选。
@@ -69,6 +71,8 @@ happlylong/                     ← 框架根（本文件所在目录）
 **项目级产品原型**：`workspace/{project}/prototype/` 与 `iterations/` 平级，用于跨迭代页面和交互演示；`project new` 自动建骨架，存量项目用 `prototype init {project}` 补齐，`prototype show {project}` 校验并展示元数据。`_index.yaml` 记录入口、`planned/draft/ready` 状态与同项目 `source_iterations`；README 记录来源路线图/PRD/覆盖表、版本范围、模拟服务与验证证据。原型不替代需求或契约，不改变会话绑定，不据此回写迭代 `prd/dev/smoke` 或勾选业务 AC；`ready` 仅指原型可评审。单迭代截图/评审快照仍放该迭代 `attach/`，链接项目原型，不复制第二套。
 
 **原型直接预览**：`prototype preview {project}` 返回本地入口，`prototype preview {project} --open` 通过系统默认浏览器打开文件 URI，均不启动服务。`show` 展示 `preview_mode: file` 和 `entry_uri`；schema 1 旧清单未填写 `preview_mode` 时按 `file` 处理，入口限 `.html`/`.htm`。原型必须可在浏览器直接打开本地 HTML（`file://`），使用相对 CSS、经典脚本、媒体路径或内联资源；不得要求用户先运行 Node/npm、服务或构建。演示数据放在本地经典脚本或 HTML 内，不依赖本地 JSON 的 `fetch`、ES module、CDN 或 service worker。浏览器若限制文件页存储，需显示仅当前页有效的状态并提供导出，不能自动迁移旧 HTTP 来源的数据。标为 `ready` 前须实际以 `file://` 打开并验证关键交互、资源和存储退化，静态元数据检查不能替代运行验证。
+
+**全局项目看板**：`/hy-dashboard` 通过 `python3 happlylong.py dashboard` 读取项目注册表、仓库登记与迭代状态，在 `workspace/dashboard.html` 生成或刷新同一份快照。HTML 可直接离线打开，加 `--open` 可在系统默认浏览器打开。看板只读取业务数据，不改变会话绑定或迭代状态。
 
 **指令语言**：Skill 源在 `.hy/i18n/{zh,en}/skills/`；`.agents/skills/` 与本文件为安装产物，由 `python3 happlylong.py lang zh|en` 切换（首次 `init` 按系统 locale 探测一次并固定）。修改指令请改对应语言源后重跑切换命令。
 
@@ -119,6 +123,7 @@ P0 → 立即中止 + 说明 + 修正建议；P1 → 警告并修正；P2（建�
 
 | 日期 | 变更 |
 |------|------|
+| 2026-11-18 | 增加全局项目看板 `/hy-dashboard`，生成或刷新单份本地 HTML。 |
 | 2026-11-13 | 后端 Compose 配置增补缺项，先经用户批准再实施，固定容器命名并复用。 |
 | 2026-10-16 | 原型改为可直接打开的本地 HTML，增加预览命令与文件页验证、存储退化规则。 |
 | 2026-10-15 | 增加项目级产品原型目录及来源、模拟和阶段隔离规则。 |

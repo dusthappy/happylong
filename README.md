@@ -21,6 +21,7 @@ happlylong（缩写 **hy**）把「带 PRD 门槛的产研流程」做成一套 
 - **多个项目，统一管理**：既支持彼此独立的项目，也支持共享后端或公共代码库的关联项目。通过软链将代码库接入 `workspace/{project}/code_lib/`，无需搬动代码或改变原仓库结构；
 - **按迭代推进，全过程可追溯**：每次需求作为独立迭代，持续记录需求文档（PRD）、接口契约、开发计划与实现记录、测试结果，统一保存在 `workspace/{project}/iterations/{id}/`，方便回顾、接续和复检；
 - **跨迭代产品原型**：在项目 `prototype/` 中集中演示完整产品流程，引用来源需求与版本规划，原型验证与业务交付分开记录；
+- **全局项目看板**：一份 HTML 查看所有已登记项目的前后端仓库、全部迭代与各阶段状态，按需刷新并离线查看；
 - **不同会话，并行开发**：每个 AI 会话明确绑定一个项目的一次迭代，不同会话可分别推进不同项目或同一项目的不同迭代，绑定信息和迭代产物各自归属明确。未绑定的新会话会先询问绑定已有迭代还是创建新迭代；
 - **无 PRD 禁改码**：所有业务仓库改动必须先过 `/hy-req` 闭合 PRD 与验收标准（AC），AI 代理才能动代码；
 - **多仓自动串联**：前后端分离、共享后端多项目挂载，`/hy-dev` 按角色自动排序与路由。
@@ -33,7 +34,7 @@ happlylong（缩写 **hy**）把「带 PRD 门槛的产研流程」做成一套 
 |------|------|
 | **单轨轻链路** | 一条链路 `req → dev → test`，req 阶段即闭合 PRD 与契约；不设多框架多档位 |
 | **零平台镜像** | 只维护 `AGENTS.md`（跨平台开放标准）与 `.hy/i18n/` 双语语言源（`.agents/skills/` 为安装产物），不做 .cursor/.claude 等镜像目录与同步机制 |
-| **工具即真相** | 一个单文件 CLI `happlylong.py` 管骨架/软链/原型/迭代/会话/体检/语言，状态全部落 YAML，无隐藏数据库 |
+| **工具即真相** | 一个单文件 CLI `happlylong.py` 管骨架/软链/原型/看板/迭代/会话/体检/语言，状态全部落 YAML，无隐藏数据库 |
 | **三阶段状态机** | 迭代只有 `prd → dev → smoke` 三个阶段 + 契约闭合字段，产物平铺四个单文件 |
 
 ## 快速上手
@@ -122,7 +123,7 @@ PowerShell 等价写法为 `$env:HY_SESSION_ID = "claude:project-a:conversation-
 
 上下文压缩不会改变落盘绑定；只要该 ID 在压缩、进程续跑或 Agent 交接后保持不变，就会稳定解析到同一迭代。跨 Agent 交接同一逻辑会话时，双方显式使用同一个 `HY_SESSION_ID`，且同一时刻只保留一个写入者；真正并行的会话必须使用不同 ID。若没有可信 ID，绑定相关命令会 **fail closed** 并拒绝执行，不再回退共享的 `current.yaml`，从而避免静默串线。
 
-**未绑定会话入口门禁**：新会话第一次收到会推进需求、开发、修复、复检、冒烟或 iteration 沉淀的 `/hy-*` 或自然语言请求时，先检查绑定。`session show` 的整个 stdout 是单份 YAML 文档；未绑定时以 `active: false` + `entry_gate` 返回机器可判定的门禁契约，并声明 workspace 根与必填绑定字段。代理据此列出有效迭代并循环 Ask-First，让你选择“绑定已有迭代”或“创建新迭代”。输入无效时不会落产物或改代码，而是重新询问；绑定/创建成功后会恢复最初请求。唯一例外是显式 `/hy-req --title`：它明确表示新 PRD，只补齐项目后直接创建。纯问答、框架导航/规范/职责评审、项目或软链接入、原型目录初始化/查看、诊断、框架源码维护与开源/发版准备，以及 `/hy-knowledge bootstrap` 不受业务迭代门禁影响。
+**未绑定会话入口门禁**：新会话第一次收到会推进需求、开发、修复、复检、冒烟或 iteration 沉淀的 `/hy-*` 或自然语言请求时，先检查绑定。`session show` 的整个 stdout 是单份 YAML 文档；未绑定时以 `active: false` + `entry_gate` 返回机器可判定的门禁契约，并声明 workspace 根与必填绑定字段。代理据此列出有效迭代并循环 Ask-First，让你选择“绑定已有迭代”或“创建新迭代”。输入无效时不会落产物或改代码，而是重新询问；绑定/创建成功后会恢复最初请求。唯一例外是显式 `/hy-req --title`：它明确表示新 PRD，只补齐项目后直接创建。纯问答、框架导航/规范/职责评审、项目或软链接入、原型目录初始化/查看、全局项目看板、诊断、框架源码维护与开源/发版准备，以及 `/hy-knowledge bootstrap` 不受业务迭代门禁影响。
 
 ## Skill 一览（全部 hy- 前缀）
 
@@ -138,6 +139,7 @@ PowerShell 等价写法为 `$env:HY_SESSION_ID = "claude:project-a:conversation-
 | `/hy-test` | 冒烟执行（AC↔结果↔证据四列表，fail 回流 /hy-fix） |
 | `/hy-knowledge` | 知识库 bootstrap 冷启动 + 迭代变动沉淀 |
 | `/hy-project` | 项目登记、软链三模式、原型目录、pending 补链、doctor 体检 |
+| `/hy-dashboard` | 生成或刷新全局项目、仓库与迭代状态看板 |
 
 ## shared：跨项目通用规范
 
@@ -168,6 +170,33 @@ python3 happlylong.py link apply myapp          # 目录就绪后一键补链
 ```
 
 完整说明见 `/hy-project` Skill 与 [examples/example/](examples/example/) 示例。
+
+## 全局项目看板
+
+在 AI 对话中发送 `/hy-dashboard`，即可生成或刷新 `workspace/dashboard.html`。看板汇总所有已登记项目、前端与后端等仓库角色、全部迭代及其 PRD、开发、冒烟、契约和关闭状态。可搜索项目、仓库与迭代，也可按迭代的整体状态筛选。首次执行创建文件，后续执行更新同一路径。直接双击 HTML 即可离线查看，生成与查看均无需启动服务，也无需绑定业务迭代。生成的 HTML 随 `workspace/` 一起排除在 Git 之外。
+
+要在看板上标出同仓的前后端目录，可在 `workspace/{project}/profile.yaml` 中为现有的 `role: fullstack` 仓库登记 `fullstack_paths`：
+
+```yaml
+repos:
+  example:
+    role: fullstack
+    target: /abs/path/example
+    fullstack_paths:
+      frontend: [apps/web, apps/admin]
+      backend: [services/api]
+```
+
+`frontend` 和 `backend` 可以只登记一侧，填写的每侧须是非空列表。路径相对于仓库根目录，使用 `/` 分隔且省略多余的路径段，`.` 表示仓库根目录。刷新时看板从项目档案读取这些目录，无需扫描代码仓库。
+
+终端也可执行同一操作。
+
+```bash
+python3 happlylong.py dashboard
+python3 happlylong.py dashboard --open
+```
+
+已有安装通过 `python3 happlylong.py lang zh` 更新技能。
 
 ## 产品原型：跨迭代的交互演示
 
@@ -200,7 +229,7 @@ AGENTS.md / CLAUDE.md  代理规范与 Claude Code 接入口（init/lang 生成�
 shared/               跨项目通用规范（编码/安全/测试/Git + TS/Go/Rust）
 examples/example/     脱敏示例项目
 .github/              Issue/PR 模板、CI 与 Dependabot 配置
-workspace/            业务项目位（本机私有，整目录不入库）：_index.yaml + {project}/（profile + code_lib/ 软链 + knowledge/ + prototype/ + iterations/）
+workspace/            业务项目位（本机私有，整目录不入库）：_index.yaml + dashboard.html + {project}/（profile + code_lib/ 软链 + knowledge/ + prototype/ + iterations/）
 ```
 
 ## FAQ
@@ -223,6 +252,8 @@ workspace/            业务项目位（本机私有，整目录不入库）：_
 
 | 日期 | 变更 |
 |------|------|
+| 2026-11-19 | 说明如何为全栈仓库登记前后端目录并在看板查看。 |
+| 2026-11-18 | 增加全局项目看板 `/hy-dashboard`，生成或刷新单份本地 HTML。 |
 | 2026-11-06 | 增加可选飞书 CLI 与图片本地化指南入口，沿用迭代附件和现有技能链路。 |
 | 2026-10-16 | 原型改为直接打开的本地 HTML；增加 preview 命令、兼容元数据和文件页验证规则。 |
 | 2026-10-15 | 增加项目级产品原型目录、CLI 用法、来源追踪、交付边界及存量项目兼容规则。 |

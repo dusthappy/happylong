@@ -25,7 +25,7 @@ metadata:
 - **产品原型**：`workspace/{project}/prototype/` 跨迭代展示完整流程，通过来源迭代和覆盖表追踪版本；原型 `ready` 不等于业务 AC 或阶段完成。
 - **状态机 SSOT**：`workspace/{project}/iterations/{id}/_index.yaml → stages`（prd/dev/smoke 三阶段；契约闭合状态另记 `contract` 字段）。
 - **会话**：每个代理会话独占一个原子写入的绑定文件 `.hy/session/bindings/{hash}.yaml`，命令缺省时只从当前会话补全。active/previous 都必须显式携带 `project`、`iteration_id` 与规范 `iteration_path`，唯一指向 `workspace/{project}/iterations/{iteration_id}`。身份优先级为前置 `--session-id` → `HY_SESSION_ID` → `CODEX_THREAD_ID`；所有入口对同一 ID 得到同一摘要，原始 ID 不落盘。缺少可信 ID 或 workspace 归属不一致时 fail closed，绝不回退共享 `.hy/session/current.yaml`。
-- **未绑定入口**：执行型 `/hy-*` 或自然语言请求先 `session show`；未绑定时 `iter list` 后 Ask-First 循环选择“绑定已有 / 创建新迭代”。仅显式 `/hy-req --title` 代表确定新 PRD，可补齐项目后直接创建。框架源码维护、诊断与开源/发版准备不属于业务迭代，不触发该门禁。
+- **未绑定入口**：执行型 `/hy-*` 或自然语言请求先 `session show`；未绑定时 `iter list` 后 Ask-First 循环选择“绑定已有 / 创建新迭代”。仅显式 `/hy-req --title` 代表确定新 PRD，可补齐项目后直接创建。全局项目看板、框架源码维护、诊断与开源/发版准备不属于业务迭代，不触发该门禁。
 
 ## 命令速查
 
@@ -38,10 +38,11 @@ metadata:
 | `/hy-test` | 冒烟：AC→验证清单→`smoke.md` 四列表 | fail 自动引导 `/hy-fix` |
 | `/hy-knowledge` | 知识库：bootstrap 从代码注入 / iteration 沉淀迭代变动 | 无参自动路由 |
 | `/hy-project` | 新项目/软链三模式/原型目录/pending 补链 | 驱动 `happlylong.py project\|link\|prototype` |
+| `/hy-dashboard` | 刷新全局项目、仓库与迭代状态看板 | 驱动 `happlylong.py dashboard [--open]` |
 | `/hy-spec` | 元规范（约束+生命周期+质量） | — |
 | `/hy-roles` | 职责链三人格（PM 澄清/架构把关/实现守护），只评审不落盘 | 按视角召唤，产物落盘走 /hy-req、/hy-dev |
 
-工具侧命令（`python3 happlylong.py [--session-id ID] …`）：`--session-id` 是跨 Agent 显式身份且须放在子命令前；子命令包括 `init [--lang zh|en] / lang [zh|en] / release-check / status / doctor --fix / project new / prototype init|show|preview / link add|rm|apply|list / iter new|list|show|close / knowledge init|register|status / session show|set|back|clear`。
+工具侧命令（`python3 happlylong.py [--session-id ID] …`）：`--session-id` 是跨 Agent 显式身份且须放在子命令前；子命令包括 `init [--lang zh|en] / lang [zh|en] / release-check / status / dashboard [--open] / doctor --fix / project new / prototype init|show|preview / link add|rm|apply|list / iter new|list|show|close / knowledge init|register|status / session show|set|back|clear`。
 
 ## 按场景导航
 
@@ -57,6 +58,7 @@ metadata:
 | 多 Agent / 多会话并行 | Codex 自动按 `CODEX_THREAD_ID` 隔离；其他 Agent 在各自会话启动环境设置稳定且唯一的 `HY_SESSION_ID`，压缩前后保持不变，再分别执行 `session set` 或 `/hy-req`；同一逻辑会话串行交接时复用同一 ID，同一 ID 不允许并发写 |
 | 新项目接入 | `/hy-project`（三模式：单仓 / FE+BE 双仓 / 共享后端+子项目） |
 | 构建或查看产品原型 | `prototype init {project}` → 基于明确的路线图/PRD/覆盖表制作原型 → `prototype show {project}` → 双击 HTML 或 `prototype preview {project} --open`；不启动服务，验证文件页交互并标注模拟能力，业务阶段保持独立 |
+| 查看所有项目及迭代进度 | `/hy-dashboard` → 打开 `workspace/dashboard.html`；数据变化后再次执行技能刷新 |
 | 项目接入后建立认知 | `/hy-knowledge bootstrap --project X`（从代码注入 overview/api/data） |
 | 迭代完成后沉淀 | `/hy-knowledge iteration`（未绑定先过入口门禁；changelog 流水 + api/data 增量） |
 | 目录或软链可疑 | `python3 happlylong.py doctor --fix` |
@@ -82,7 +84,7 @@ metadata:
 
 | 日期 | 变更 |
 |------|------|
-| 2026-10-16 | 原型导航改为直接打开本地 HTML，增加 preview 命令。 |
+| 2026-11-18 | 增加全局项目看板 `/hy-dashboard`，生成或刷新单份本地 HTML。 |
 | 2026-10-15 | 增加项目级产品原型的路径、来源与业务交付边界。 |
 
 ## [Next Steps]

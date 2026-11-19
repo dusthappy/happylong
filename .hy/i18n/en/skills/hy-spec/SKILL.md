@@ -65,7 +65,7 @@ Every hy-* skill's output must end with **[Next Steps]**: 1-3 copyable next-step
 - Checkpoint = a decision you are unsure about, with multiple reasonable paths, or whose impact exceeds the current iteration. At a checkpoint: stop and give "question + options + recommendation with reasons"; do not proceed and do not silently pick a default before the user answers.
 - An unbound session is a mandatory entry checkpoint: run `iter list` to show valid candidates, then ask whether to bind an existing iteration or create a new one (prefer a structured question/choice UI when available). For binding, collect only the missing project/iteration ID, run `session set`, and verify with `session show`. For creation, collect project/title/type/requirement body and route through `/hy-req` to complete the PRD. Invalid or incomplete input keeps the gate closed: show candidates and ask again until the user succeeds or cancels.
 - Explicit `/hy-req --title` is the sole bypass of that choice: use the title as written, resolve the project, then create and bind a new iteration. Even if another iteration is bound, open a new one; never reinterpret this signal as reuse.
-- Pure Q&A, `/hy-spec`, `/hy-guide`, `/hy-roles`, project/symlink onboarding, prototype scaffold initialization/inspection, framework diagnostics, framework-source maintenance and open-source/release preparation, and `/hy-knowledge bootstrap` do not trigger the business-iteration gate. For natural language, the deciding question is whether the request would advance iteration artifacts or business code.
+- Pure Q&A, `/hy-spec`, `/hy-guide`, `/hy-roles`, project/symlink onboarding, prototype scaffold initialization/inspection, the workspace dashboard, framework diagnostics, framework-source maintenance and open-source/release preparation, and `/hy-knowledge bootstrap` do not trigger the business-iteration gate. For natural language, the deciding question is whether the request would advance iteration artifacts or business code.
 - Non-checkpoints (state-machine routing, plan generation, task-by-task implementation, self-check execution) always run continuously and automatically — go as far as a single request allows.
 
 ## 4. Output quality grades
@@ -101,6 +101,7 @@ Detect violation → grade it (P0/P1/P2)
 
 | Date | Change |
 |------|--------|
+| 2026-11-18 | Add `/hy-dashboard` to create or refresh a single local HTML snapshot. |
 | 2026-11-13 | Require backend Compose placement, additive changes, user approval, and fixed names and reuse. |
 | 2026-10-16 | Add local HTML direct-preview, file-page verification, and storage-fallback constraints. |
 | 2026-10-15 | Add project-level prototype paths, source traceability, and business-delivery boundaries. |

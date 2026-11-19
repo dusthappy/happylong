@@ -1,6 +1,6 @@
 # happlylong 开源发布规范
 
-> **版本**: 1.10 | **日期**: 2026-11-06 | **适用**: 本仓库的一切公开行为（首次发布与后续维护）
+> **版本**: 1.12 | **日期**: 2026-11-18 | **适用**: 本仓库的一切公开行为（首次发布与后续维护）
 > 本规范回答一个问题：**如何让「本机工作台」与「公开仓库」长期安全地共存于同一目录**。
 
 ---
@@ -11,7 +11,7 @@ happlylong 不设独立的发布分支或发布目录，本目录同时是本机
 
 | 层 | 内容 | 入库策略 |
 |----|------|----------|
-| **发布层** | `happlylong.py|.bat`、`.hy/config.yaml`、`.hy/i18n/{zh,en}/`（skills + AGENTS.md + **templates**）、`shared/`、`examples/`、`tests/`、`requirements.txt`、`.gitignore`、`.gitattributes`、根目录社区文件、`.github/`（Issue/PR 模板、CI、Dependabot） | **tracked**，正常提交 |
+| **发布层** | `happlylong.py|.bat`、`.hy/config.yaml`、`.hy/dashboard.html.tpl`、`.hy/i18n/{zh,en}/`（skills + AGENTS.md + **templates**）、`shared/`、`examples/`、`tests/`、`requirements.txt`、`.gitignore`、`.gitattributes`、根目录社区文件、`.github/`（Issue/PR 模板、CI、Dependabot） | **tracked**，正常提交 |
 | **本机层** | `.hy/session/`（`bindings/{hash}.yaml` 每会话迭代绑定、仅供人工迁移的旧 `current.yaml`、语言偏好 `prefs.yaml`）、`.hy/snapshots/`、`.hy/private-names.yaml`、`AGENTS.md`、`CLAUDE.md`、`.agents/`（**均为 `init`/`lang` 生成的安装产物**）、`.claude/`（用户自建技能软链）、`.zcode/`、`.zcodeignore`（ZCode 自动生成的本机配置）、`workspace/`（**整目录**） | **ignored**，仅本机存在；绑定文件只存会话 ID 摘要，运行时绝不自动读取共享 `current.yaml` |
 | **外部层** | `code_lib/` 软链指向的真实代码库 | **永不入库**，目标路径只以登记字段存在于本机 `profile.yaml` |
 
@@ -59,7 +59,7 @@ python3 happlylong.py release-check
 2. 本机路径泄露扫描（`/Users/`、`C:\Users\`）；
 3. 凭据/个人邮箱扫描，覆盖常见带/不带引号的赋值、JSON/环境变量键及私钥标记；
 4. 占位符残留扫描（TODO/待补充/TBD/FIXME/XXX，排除规则定义文件自身的合法提及）；
-5. 双语 Skill 名单、AGENTS 源与 22 份 frontmatter 的完整性/YAML/必填字段验证，并确保每个 Skill 以 1–3 条 `[Next Steps]` 收尾；
+5. 验证双语 Skill 名单、AGENTS 源与各自的 frontmatter 是否完整、YAML 有效、必填字段齐全，并确保每个 Skill 以 1–3 条 `[Next Steps]` 收尾；
 6. 双语必需模板、社区资源与工作流的实际发布清单完整性，以及 README 标题层级结构一致性；
 7. `.hy/config.yaml`、双语 AGENTS 版本头与 `CHANGELOG.md` 版本段一致性；
 8. 发布层无软链、GitHub Issue 模板 frontmatter、Dependabot 的 Actions/Python 生态配置、PyYAML 依赖存在且依赖精确版本固定，以及工作流第三方 Action 使用完整 commit SHA 的供应链约束；验证工作流触发器、任务、步骤结构与 run 字段里的单元测试/发布检查命令，不将 YAML 注释算作验证步骤。
@@ -118,6 +118,7 @@ GitHub 仓库设置基线：Description 一句话定位；Topics 建议 `ai-agen
 ---
 
 *修订历史*
+- 1.12（2026-11-18）：纳入全局看板模板，生成的 `workspace/dashboard.html` 随工作区留在本机。
 - 1.10（2026-11-06）：将 ZCode 的 `.zcode/` 与自动生成的 `.zcodeignore` 明确归入本机层；通过 Git 忽略规则排除本机配置，发布扫描不增加豁免。
 - 1.9（2026-09-09）：发布清单按 Git NUL 分隔解析；补齐实际入库资源、运行时依赖、有效工作流步骤与 UTF-8 文本检查；明确启发式扫描/远端 CI 的证据边界与本机操作快照恢复约束。
 - 1.8（2026-09-04）：补齐 GitHub 发布准备：会话 active/previous 绑定强制归属唯一 `workspace/{project}`，`session show` 改为单一 YAML 契约；`release-check` 修正无 Git 枚举与私有名称映射解析，增加软链、双语清单/README/版本/Skill 收尾/社区模板、Dependabot、Action SHA 与本地链接检查；社区文件扩为完整双语。

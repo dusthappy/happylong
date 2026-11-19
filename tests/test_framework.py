@@ -1,7 +1,7 @@
 """happlylong 单元测试（unittest，零额外依赖）。
 
 覆盖：ID/slug 生成、名字白名单校验、跨 Agent 会话身份/隔离/原子写入、
-fail-closed 与未绑定入口契约、语言探测矩阵、22 份 frontmatter 解析、双语模板结构一致性。
+fail-closed 与未绑定入口契约、语言探测矩阵、双语 frontmatter 与模板结构、离线项目看板。
 运行：python3 -m unittest discover -s tests -v
 """
 from __future__ import annotations
@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import hashlib
+import html
 import importlib.util
 import io
 import os
@@ -427,7 +428,7 @@ class TestI18nAssets(unittest.TestCase):
 
     def test_all_skill_frontmatters_parse(self):
         skills = sorted((ROOT / ".hy" / "i18n").glob("*/skills/*/SKILL.md"))
-        self.assertEqual(len(skills), 20)
+        self.assertEqual(len(skills), len(hy.LANGUAGES) * len(hy.EXPECTED_SKILL_NAMES))
         for p in skills:
             data = self._frontmatter(p)
             self.assertIsInstance(data, dict, p)
@@ -527,6 +528,202 @@ class TestReleaseChecks(unittest.TestCase):
                 for path in (ROOT / ".hy" / "i18n" / lang / "skills").glob("*/SKILL.md")
             }
             self.assertEqual(actual, hy.EXPECTED_SKILL_NAMES)
+
+
+class TestDashboard(unittest.TestCase):
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory(prefix="hy-dashboard-")
+        self.addCleanup(directory.cleanup)
+        self.root = pathlib.Path(directory.name)
+        self.workspace = self.root / "workspace"
+        self.registry = self.workspace / "_index.yaml"
+        self.dashboard = self.workspace / "dashboard.html"
+        hy_dir = self.root / ".hy"
+        hy_dir.mkdir()
+        shutil.copyfile(ROOT / ".hy/dashboard.html.tpl", hy_dir / "dashboard.html.tpl")
+        self.session_dir = hy_dir / "session"
+        framework = mock.patch.multiple(
+            hy, ROOT=self.root, WORKSPACE_ROOT=self.workspace, WORKSPACE_INDEX=self.registry,
+            HY_DIR=hy_dir, SESSION_DIR=self.session_dir, PREFS_FILE=self.session_dir / "prefs.yaml",
+            SESSION_BINDINGS_DIR=self.session_dir / "bindings",
+        )
+        framework.start()
+        self.addCleanup(framework.stop)
+
+    def _project(self, project, repos=None):
+        path = self.workspace / project / "profile.yaml"
+        hy.write_yaml_file(path, {"project": project, "title": f"Project {project}", "repos": repos or {}})
+        return path
+
+    def _iteration(self, project, slug, title, status, smoke):
+        iteration_id = f"260918-feat-{slug}"
+        path = self.workspace / project / "iterations" / iteration_id / "_index.yaml"
+        hy.write_yaml_file(path, {
+            "id": iteration_id,
+            "project": project,
+            "title": title,
+            "status": status,
+            "stages": {"prd": "done", "dev": "in_progress" if status == "open" else "done", "smoke": smoke},
+            "contract": "skipped",
+        })
+        return path
+
+    def _run(self, *args):
+        output = io.StringIO()
+        with mock.patch.dict(os.environ, {"LANG": "en_US.UTF-8"}, clear=True), \
+                contextlib.redirect_stdout(output), contextlib.redirect_stderr(output):
+            result = hy.main(["dashboard", *args])
+        return result, output.getvalue()
+
+    def test_dashboard_creates_and_refreshes_one_snapshot_from_registered_projects(self):
+        frontend_target = self.root / "private-frontend-path"
+        alpha = self._project("alpha", {
+            "alpha_front": {"role": "frontend", "target": str(frontend_target), "pending": True},
+            "shared_api": {
+                "role": "backend",
+                "target": str(self.root / "private-backend-path"),
+                "shared": True,
+                "backend_apps": {"alpha_app": {"title": "Alpha API", "paths": ["api/alpha"]}},
+            },
+        })
+        beta = self._project("beta")
+        self._project("unregistered")
+        hy.write_yaml_file(self.registry, {"projects": {"alpha": {}, "beta": {}}})
+        title = '开放迭代 <b data-dashboard-example="fixture"> &'
+        open_iteration = self._iteration("alpha", "initial", title, "open", "pending")
+        done_iteration = self._iteration("beta", "initial", "Beta release", "done", "pass")
+        abandoned_iteration = self._iteration("beta", "abandoned", "Beta experiment", "abandoned", "fail")
+        source_paths = (self.registry, alpha, beta, open_iteration, done_iteration, abandoned_iteration)
+        source_before = {path: path.read_bytes() for path in source_paths}
+
+        self.assertFalse(self.dashboard.exists())
+        with mock.patch.object(hy.webbrowser, "open") as browser_open:
+            result, output = self._run()
+            browser_open.assert_not_called()
+        self.assertEqual(result, 0, output)
+        page = self.dashboard.read_text(encoding="utf-8")
+        for value in (
+            "Project alpha", "Project beta", "alpha_front", "shared_api", "Alpha API", html.escape(title),
+            "Beta release", "Beta experiment", 'data-value="open"', 'data-value="in_progress"',
+            'data-value="abandoned"', 'data-value="pass"', 'data-value="fail"', 'data-value="skipped"',
+        ):
+            self.assertIn(value, page)
+        self.assertNotIn("<b data-dashboard-example", page)
+        self.assertNotIn("unregistered", page)
+        self.assertNotIn(str(frontend_target), page)
+        self.assertEqual({path: path.read_bytes() for path in source_paths}, source_before)
+
+        self._iteration("alpha", "initial", "Alpha release", "done", "pass")
+        result, output = self._run()
+        self.assertEqual(result, 0, output)
+        page = self.dashboard.read_text(encoding="utf-8")
+        self.assertIn("Alpha release", page)
+        self.assertNotIn(html.escape(title), page)
+        self.assertEqual(list(self.workspace.rglob("*.html")), [self.dashboard])
+        self.assertFalse(self.session_dir.exists())
+
+    def test_dashboard_fullstack_repo_covers_frontend_and_backend(self):
+        self._project("mono", {
+            "mono_app": {
+                "role": "fullstack", "target": str(self.root / "mono-app"),
+                "fullstack_paths": {"frontend": ["apps/storefront", "apps/backoffice"], "backend": ["."]},
+            },
+        })
+        self._project("mixed", {
+            "mixed_app": {
+                "role": "fullstack", "target": str(self.root / "mixed-app"),
+                "fullstack_paths": {"frontend": ["apps/web"]},
+            },
+            "mixed_web": {"role": "frontend", "target": str(self.root / "mixed-web")},
+        })
+        hy.write_yaml_file(self.registry, {"projects": {"mono": {}, "mixed": {}}})
+
+        result, output = self._run()
+        self.assertEqual(result, 0, output)
+        page = self.dashboard.read_text(encoding="utf-8")
+        self.assertNotIn("None registered", page)
+        self.assertEqual(page.count("Full stack (frontend and backend)"), 2)
+        for repo in ("mono_app", "mixed_app", "mixed_web"):
+            self.assertEqual(page.count(f"<code>{repo}</code>"), 1)
+        self.assertEqual(page.count('class="repo-paths"'), 2)
+        self.assertEqual(page.count("Directory not registered"), 1)
+        self.assertRegex(
+            page, r"(?s)<code>mono_app</code>.*?Frontend directories.*?apps/storefront.*?apps/backoffice"
+            r".*?Backend directories.*?<code>\.</code>.*?</dl>",
+        )
+        self.assertRegex(
+            page, r"(?s)<code>mixed_app</code>.*?Frontend directories.*?apps/web"
+            r".*?Backend directories.*?Directory not registered.*?</dl>",
+        )
+
+    def test_profile_rejects_invalid_fullstack_directory_declarations(self):
+        invalid = (
+            ("frontend", {"frontend": ["apps/web"]}),
+            ("fullstack", {}),
+            ("fullstack", {"service": ["services/api"]}),
+            ("fullstack", {"frontend": "apps/web"}),
+            ("fullstack", {"frontend": []}),
+            ("fullstack", {"frontend": [""]}),
+            ("fullstack", {"frontend": ["/apps/web"]}),
+            ("fullstack", {"frontend": ["C:/apps/web"]}),
+            ("fullstack", {"frontend": ["apps/../outside"]}),
+            ("fullstack", {"frontend": ["apps\\web"]}),
+        )
+        for role, paths in invalid:
+            with self.subTest(role=role, paths=paths):
+                self._project("mono", {
+                    "mono_app": {"role": role, "target": str(self.root / "mono-app"), "fullstack_paths": paths},
+                })
+                with self.assertRaises(hy.HyError):
+                    hy.read_profile("mono")
+
+    def test_dashboard_opens_fixed_local_file_even_without_a_workspace_registry(self):
+        with mock.patch.object(hy.webbrowser, "open", return_value=True) as browser_open:
+            result, output = self._run("--open")
+        self.assertEqual(result, 0, output)
+        self.assertTrue(self.dashboard.is_file())
+        self.assertFalse(self.registry.exists())
+        browser_open.assert_called_once_with(self.dashboard.as_uri(), new=2)
+
+    def test_dashboard_flags_unreadable_iteration_and_renders_healthy_rows(self):
+        self._project("alpha")
+        hy.write_yaml_file(self.registry, {"projects": {"alpha": {}}})
+        self._iteration("alpha", "valid", "Healthy iteration", "open", "pending")
+        invalid_path = self._iteration("alpha", "invalid", "Unreadable iteration", "open", "pending")
+        invalid_path.write_text("stages: [", encoding="utf-8")
+
+        result, output = self._run()
+        self.assertEqual(result, 0, output)
+        page = self.dashboard.read_text(encoding="utf-8")
+        self.assertIn("Healthy iteration", page)
+        self.assertIn(invalid_path.parent.name, page)
+        self.assertEqual(invalid_path.read_text(encoding="utf-8"), "stages: [")
+
+    def test_dashboard_keeps_previous_snapshot_when_workspace_registry_is_invalid(self):
+        hy.write_yaml_file(self.registry, {"projects": {}})
+        result, output = self._run()
+        self.assertEqual(result, 0, output)
+        previous = self.dashboard.read_bytes()
+        self.registry.write_text("projects: [invalid]", encoding="utf-8")
+
+        with mock.patch.object(hy.webbrowser, "open") as browser_open:
+            result, output = self._run("--open")
+            browser_open.assert_not_called()
+        self.assertNotEqual(result, 0, output)
+        self.assertEqual(self.dashboard.read_bytes(), previous)
+
+    def test_dashboard_rejects_symlink_output_before_overwriting_or_opening(self):
+        self.workspace.mkdir()
+        outside = self.root / "elsewhere.html"
+        outside.write_text("existing content", encoding="utf-8")
+        self.dashboard.symlink_to(outside)
+
+        with mock.patch.object(hy.webbrowser, "open") as browser_open:
+            result, output = self._run("--open")
+            browser_open.assert_not_called()
+        self.assertNotEqual(result, 0, output)
+        self.assertTrue(self.dashboard.is_symlink())
+        self.assertEqual(outside.read_text(encoding="utf-8"), "existing content")
 
 
 class TestAuditReleaseFixes(unittest.TestCase):
